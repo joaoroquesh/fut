@@ -11,7 +11,7 @@
 </head>
 <body>
 
-  <!-- TELA 1: Configuração -->
+  <!-- TELA 1: Configuracao -->
   <div id="screen-setup" class="screen active">
     <h1>Fut da Galera</h1>
 
@@ -63,6 +63,26 @@
   <div id="screen-match" class="screen">
     <div id="matchTeams" class="match-teams"></div>
 
+    <div id="scoreSection" class="score-section">
+      <div class="score-team">
+        <span class="score-label" id="scoreLabelA">Time A</span>
+        <div class="score-control">
+          <button onclick="adjustGoals('A', -1)">−</button>
+          <span id="goalsA" class="score-value">0</span>
+          <button onclick="adjustGoals('A', 1)">+</button>
+        </div>
+      </div>
+      <span class="score-x">×</span>
+      <div class="score-team">
+        <span class="score-label" id="scoreLabelB">Time B</span>
+        <div class="score-control">
+          <button onclick="adjustGoals('B', -1)">−</button>
+          <span id="goalsB" class="score-value">0</span>
+          <button onclick="adjustGoals('B', 1)">+</button>
+        </div>
+      </div>
+    </div>
+
     <div class="timer-display">
       <span id="timer">10:00</span>
     </div>
@@ -72,11 +92,11 @@
       <button class="btn-secondary" onclick="resetTimer()">Reiniciar</button>
     </div>
 
-    <div id="resultSection" class="result-section hidden">
+    <div id="resultSection" class="result-section">
       <h2>Resultado</h2>
       <div class="result-buttons">
         <button class="btn-team" id="btnTeamA" onclick="setResult('A')"></button>
-        <button class="btn-draw" onclick="setResult('draw')">Empate</button>
+        <button class="btn-draw" id="btnDraw" onclick="setResult('draw')">Empate</button>
         <button class="btn-team" id="btnTeamB" onclick="setResult('B')"></button>
       </div>
     </div>

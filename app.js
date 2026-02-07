@@ -6,12 +6,22 @@ let teams = [];
 let queue = [];
 let currentTeamA = null;
 let currentTeamB = null;
+let teamNameA = 'Time A';
+let teamNameB = 'Time B';
+let goalsA = 0;
+let goalsB = 0;
 let draftStarted = false;
 
 // Timer
 let timerInterval = null;
 let timerSeconds = 0;
 let timerRunning = false;
+
+// Swap mode
+let swapSource = null; // { team: 'A'|'B', index: 0 } or { queue: qIdx, playerIdx: pIdx }
+
+// Queue drag
+let dragQueueIdx = null;
 
 // --- Persistence ---
 
@@ -23,6 +33,8 @@ function saveState() {
     queue,
     currentTeamA,
     currentTeamB,
+    teamNameA,
+    teamNameB,
     draftStarted,
     currentScreen: document.querySelector('.screen.active')?.id || 'screen-setup'
   };
@@ -41,9 +53,10 @@ function loadState() {
     queue = state.queue || [];
     currentTeamA = state.currentTeamA || null;
     currentTeamB = state.currentTeamB || null;
+    teamNameA = state.teamNameA || 'Time A';
+    teamNameB = state.teamNameB || 'Time B';
     draftStarted = state.draftStarted || false;
 
-    // Restore UI
     document.getElementById('playersPerTeam').textContent = playersPerTeam;
     document.getElementById('gameTime').textContent = gameTimeMinutes;
     renderPlayerList();
@@ -67,11 +80,16 @@ function loadState() {
 
 function clearAll() {
   localStorage.removeItem('futDaGalera');
+  localStorage.removeItem('futWaiting');
   players = [];
   teams = [];
   queue = [];
   currentTeamA = null;
   currentTeamB = null;
+  teamNameA = 'Time A';
+  teamNameB = 'Time B';
+  goalsA = 0;
+  goalsB = 0;
   draftStarted = false;
   playersPerTeam = 5;
   gameTimeMinutes = 10;
@@ -125,7 +143,7 @@ function renderPlayerList() {
   container.innerHTML = players.map(p =>
     `<div class="player-tag">
       <span>${escapeHtml(p)}</span>
-      <span class="remove" onclick="removePlayer('${escapeHtml(p)}')">&times;</span>
+      <span class="remove" onclick="removePlayer('${escapeJs(p)}')">&times;</span>
     </div>`
   ).join('');
 }
@@ -147,10 +165,8 @@ function startDraft() {
     return;
   }
 
-  // Shuffle players
   const shuffled = [...players].sort(() => Math.random() - 0.5);
 
-  // Create teams
   teams = [];
   for (let i = 0; i < shuffled.length; i += playersPerTeam) {
     const teamPlayers = shuffled.slice(i, i + playersPerTeam);
@@ -159,10 +175,11 @@ function startDraft() {
     }
   }
 
-  // First two play, rest go to queue
   queue = teams.slice(2);
   currentTeamA = teams[0];
   currentTeamB = teams[1];
+  teamNameA = 'Time A';
+  teamNameB = 'Time B';
   draftStarted = true;
 
   renderTeamsScreen();
@@ -173,19 +190,16 @@ function startDraft() {
 function renderTeamsScreen() {
   const container = document.getElementById('teamsDisplay');
   let html = '';
-
-  html += renderTeamCard('Time 1', currentTeamA);
-  html += renderTeamCard('Time 2', currentTeamB);
-
+  html += renderTeamCard(teamNameA, currentTeamA);
+  html += renderTeamCard(teamNameB, currentTeamB);
   container.innerHTML = html;
 
-  // Queue
   const queueContainer = document.getElementById('queueDisplay');
   if (queue.length > 0) {
     queueContainer.innerHTML = `
       <h3>Fila de espera</h3>
       <div class="queue-list">
-        ${queue.map((t, i) => `<div class="queue-item">${i + 3}. ${t.map(escapeHtml).join(', ')}</div>`).join('')}
+        ${queue.map((t, i) => `<div class="queue-item">${i + 1}. ${t.map(escapeHtml).join(', ')}</div>`).join('')}
       </div>
     `;
   } else {
@@ -196,12 +210,67 @@ function renderTeamsScreen() {
 function renderTeamCard(title, teamPlayers) {
   return `
     <div class="team-card">
-      <h3>${title}</h3>
+      <h3>${escapeHtml(title)}</h3>
       <div class="players">
         ${teamPlayers.map(p => `<span>${escapeHtml(p)}</span>`).join('')}
       </div>
     </div>
   `;
+}
+
+// --- Team Name Editing ---
+
+function editTeamName(team) {
+  const current = team === 'A' ? teamNameA : teamNameB;
+  const newName = prompt('Nome do time:', current);
+  if (newName !== null && newName.trim() !== '') {
+    if (team === 'A') {
+      teamNameA = newName.trim();
+    } else {
+      teamNameB = newName.trim();
+    }
+    renderMatchScreen();
+    saveState();
+  }
+}
+
+// --- Goals ---
+
+function adjustGoals(team, delta) {
+  if (team === 'A') {
+    goalsA = Math.max(0, goalsA + delta);
+    document.getElementById('goalsA').textContent = goalsA;
+  } else {
+    goalsB = Math.max(0, goalsB + delta);
+    document.getElementById('goalsB').textContent = goalsB;
+  }
+  updateResultHighlight();
+}
+
+function resetGoals() {
+  goalsA = 0;
+  goalsB = 0;
+  document.getElementById('goalsA').textContent = '0';
+  document.getElementById('goalsB').textContent = '0';
+  updateResultHighlight();
+}
+
+function updateResultHighlight() {
+  const btnA = document.getElementById('btnTeamA');
+  const btnB = document.getElementById('btnTeamB');
+  const btnD = document.getElementById('btnDraw');
+
+  btnA.classList.remove('suggested');
+  btnB.classList.remove('suggested');
+  btnD.classList.remove('suggested');
+
+  if (goalsA > goalsB) {
+    btnA.classList.add('suggested');
+  } else if (goalsB > goalsA) {
+    btnB.classList.add('suggested');
+  } else {
+    btnD.classList.add('suggested');
+  }
 }
 
 // --- Add player to queue (after draft) ---
@@ -211,13 +280,13 @@ function addPlayerToQueue() {
   const name = input.value.trim();
   if (!name) return;
 
-  // Check if already playing or in queue
   const allInGame = [
     ...(currentTeamA || []),
     ...(currentTeamB || []),
     ...queue.flat()
   ];
-  if (allInGame.includes(name)) {
+  const waitingPlayers = getWaitingPlayers();
+  if (allInGame.includes(name) || waitingPlayers.includes(name)) {
     return;
   }
 
@@ -225,12 +294,9 @@ function addPlayerToQueue() {
     players.push(name);
   }
 
-  // Accumulate waiting players
-  let waitingPlayers = getWaitingPlayers();
   waitingPlayers.push(name);
   setWaitingPlayers(waitingPlayers);
 
-  // If enough for a new team, create it and add to queue
   if (waitingPlayers.length >= playersPerTeam) {
     const newTeam = waitingPlayers.splice(0, playersPerTeam);
     queue.push(newTeam);
@@ -252,9 +318,105 @@ function setWaitingPlayers(list) {
   localStorage.setItem('futWaiting', JSON.stringify(list));
 }
 
+// --- Swap Players ---
+
+function selectPlayerForSwap(team, index) {
+  // If clicking same player, deselect
+  if (swapSource && swapSource.team === team && swapSource.index === index) {
+    swapSource = null;
+    renderMatchScreen();
+    return;
+  }
+
+  // If source is set and target is different location, do swap
+  if (swapSource) {
+    performSwap(team, index);
+    return;
+  }
+
+  // Set source
+  swapSource = { team, index };
+  renderMatchScreen();
+}
+
+function selectQueuePlayerForSwap(queueIdx, playerIdx) {
+  if (swapSource && swapSource.queueIdx === queueIdx && swapSource.playerIdx === playerIdx) {
+    swapSource = null;
+    renderMatchScreen();
+    return;
+  }
+
+  if (swapSource) {
+    performSwapWithQueue(queueIdx, playerIdx);
+    return;
+  }
+
+  swapSource = { queueIdx, playerIdx };
+  renderMatchScreen();
+}
+
+function performSwap(targetTeam, targetIndex) {
+  const src = swapSource;
+
+  if (src.team) {
+    // Swap between two match players
+    const srcArr = src.team === 'A' ? currentTeamA : currentTeamB;
+    const tgtArr = targetTeam === 'A' ? currentTeamA : currentTeamB;
+    const temp = srcArr[src.index];
+    srcArr[src.index] = tgtArr[targetIndex];
+    tgtArr[targetIndex] = temp;
+  } else if (src.queueIdx !== undefined) {
+    // Swap queue player into match
+    const tgtArr = targetTeam === 'A' ? currentTeamA : currentTeamB;
+    const temp = tgtArr[targetIndex];
+    tgtArr[targetIndex] = queue[src.queueIdx][src.playerIdx];
+    queue[src.queueIdx][src.playerIdx] = temp;
+  }
+
+  swapSource = null;
+  renderMatchScreen();
+  saveState();
+}
+
+function performSwapWithQueue(queueIdx, playerIdx) {
+  const src = swapSource;
+
+  if (src.team) {
+    // Swap match player with queue player
+    const srcArr = src.team === 'A' ? currentTeamA : currentTeamB;
+    const temp = srcArr[src.index];
+    srcArr[src.index] = queue[queueIdx][playerIdx];
+    queue[queueIdx][playerIdx] = temp;
+  } else if (src.queueIdx !== undefined) {
+    // Swap two queue players
+    const temp = queue[src.queueIdx][src.playerIdx];
+    queue[src.queueIdx][src.playerIdx] = queue[queueIdx][playerIdx];
+    queue[queueIdx][playerIdx] = temp;
+  }
+
+  swapSource = null;
+  renderMatchScreen();
+  saveState();
+}
+
+// --- Queue Reorder ---
+
+function moveQueueTeam(fromIdx, direction) {
+  const toIdx = fromIdx + direction;
+  if (toIdx < 0 || toIdx >= queue.length) return;
+  const temp = queue[fromIdx];
+  queue[fromIdx] = queue[toIdx];
+  queue[toIdx] = temp;
+  renderMatchScreen();
+  saveState();
+}
+
+// --- Navigation ---
+
 function goBack() {
   clearInterval(timerInterval);
   timerRunning = false;
+  swapSource = null;
   showScreen('screen-teams');
   renderTeamsScreen();
   saveState();
@@ -269,6 +431,9 @@ function goBackToSetup() {
 // --- Match Screen ---
 
 function startMatch() {
+  goalsA = 0;
+  goalsB = 0;
+  swapSource = null;
   renderMatchScreen();
   resetTimerState();
   showScreen('screen-match');
@@ -277,26 +442,42 @@ function startMatch() {
 
 function renderMatchScreen() {
   const container = document.getElementById('matchTeams');
+
+  function playerHtml(name, team, index) {
+    const isSelected = swapSource && swapSource.team === team && swapSource.index === index;
+    const cls = isSelected ? 'player-swap selected' : 'player-swap';
+    return `<span class="${cls}" onclick="selectPlayerForSwap('${team}', ${index})">${escapeHtml(name)}</span>`;
+  }
+
   container.innerHTML = `
     <div class="match-team-card">
-      <h3>Time A</h3>
+      <h3 class="editable" onclick="editTeamName('A')">${escapeHtml(teamNameA)} ✎</h3>
       <div class="players">
-        ${currentTeamA.map(p => `<span>${escapeHtml(p)}</span>`).join('')}
+        ${currentTeamA.map((p, i) => playerHtml(p, 'A', i)).join('')}
       </div>
     </div>
     <div class="vs-divider">VS</div>
     <div class="match-team-card">
-      <h3>Time B</h3>
+      <h3 class="editable" onclick="editTeamName('B')">${escapeHtml(teamNameB)} ✎</h3>
       <div class="players">
-        ${currentTeamB.map(p => `<span>${escapeHtml(p)}</span>`).join('')}
+        ${currentTeamB.map((p, i) => playerHtml(p, 'B', i)).join('')}
       </div>
     </div>
   `;
 
-  document.getElementById('btnTeamA').textContent = 'Time A';
-  document.getElementById('btnTeamB').textContent = 'Time B';
+  // Score labels
+  document.getElementById('scoreLabelA').textContent = teamNameA;
+  document.getElementById('scoreLabelB').textContent = teamNameB;
+  document.getElementById('goalsA').textContent = goalsA;
+  document.getElementById('goalsB').textContent = goalsB;
 
-  // Queue + waiting players
+  // Result buttons
+  document.getElementById('btnTeamA').textContent = teamNameA + ' Venceu';
+  document.getElementById('btnTeamB').textContent = teamNameB + ' Venceu';
+
+  updateResultHighlight();
+
+  // Queue + waiting
   const queueContainer = document.getElementById('matchQueue');
   const waitingPlayers = getWaitingPlayers();
   const hasQueue = queue.length > 0 || waitingPlayers.length > 0;
@@ -304,7 +485,22 @@ function renderMatchScreen() {
   if (hasQueue) {
     let html = '<h3>Fila de espera</h3><div class="queue-list">';
     queue.forEach((t, i) => {
-      html += `<div class="queue-item">${i + 1}. ${t.map(escapeHtml).join(', ')}</div>`;
+      html += `<div class="queue-item-row">`;
+      html += `<div class="queue-item-reorder">`;
+      if (i > 0) {
+        html += `<button class="queue-arrow" onclick="moveQueueTeam(${i}, -1)">▲</button>`;
+      }
+      if (i < queue.length - 1) {
+        html += `<button class="queue-arrow" onclick="moveQueueTeam(${i}, 1)">▼</button>`;
+      }
+      html += `</div>`;
+      html += `<div class="queue-item">${i + 1}. `;
+      html += t.map((p, pi) => {
+        const isSelected = swapSource && swapSource.queueIdx === i && swapSource.playerIdx === pi;
+        const cls = isSelected ? 'player-swap selected' : 'player-swap';
+        return `<span class="${cls}" onclick="selectQueuePlayerForSwap(${i}, ${pi})">${escapeHtml(p)}</span>`;
+      }).join(', ');
+      html += `</div></div>`;
     });
     if (waitingPlayers.length > 0) {
       html += `<div class="queue-item waiting">Aguardando time: ${waitingPlayers.map(escapeHtml).join(', ')} (${waitingPlayers.length}/${playersPerTeam})</div>`;
@@ -314,8 +510,6 @@ function renderMatchScreen() {
   } else {
     queueContainer.innerHTML = '';
   }
-
-  document.getElementById('resultSection').classList.add('hidden');
 }
 
 // --- Timer ---
@@ -329,7 +523,6 @@ function resetTimerState() {
   document.getElementById('btnTimer').textContent = 'Iniciar';
   document.querySelector('.timer-display').classList.remove('finished');
   document.getElementById('timer').classList.remove('timer-running');
-  document.getElementById('resultSection').classList.add('hidden');
 }
 
 function toggleTimer() {
@@ -355,7 +548,6 @@ function startTimer() {
       document.getElementById('btnTimer').textContent = 'Fim!';
       document.getElementById('timer').classList.remove('timer-running');
       document.querySelector('.timer-display').classList.add('finished');
-      document.getElementById('resultSection').classList.remove('hidden');
     }
   }, 1000);
 }
@@ -369,6 +561,7 @@ function pauseTimer() {
 
 function resetTimer() {
   resetTimerState();
+  resetGoals();
 }
 
 function updateTimerDisplay() {
@@ -388,10 +581,10 @@ function setResult(result) {
   } else if (result === 'B') {
     document.getElementById('btnTeamB').classList.add('selected');
   } else {
-    document.querySelector('.btn-draw').classList.add('selected');
+    document.getElementById('btnDraw').classList.add('selected');
   }
 
-  setTimeout(() => processResult(result), 500);
+  setTimeout(() => processResult(result), 600);
 }
 
 function processResult(result) {
@@ -400,19 +593,22 @@ function processResult(result) {
     currentTeamA = allPlayers.slice(0, playersPerTeam);
     currentTeamB = allPlayers.slice(playersPerTeam, playersPerTeam * 2);
 
+    resetGoals();
     renderMatchScreen();
     resetTimerState();
     saveState();
     return;
   }
 
-  let winner, loser;
+  let winner, loser, winnerName;
   if (result === 'A') {
     winner = currentTeamA;
     loser = currentTeamB;
+    winnerName = teamNameA;
   } else {
     winner = currentTeamB;
     loser = currentTeamA;
+    winnerName = teamNameB;
   }
 
   queue.push(loser);
@@ -420,7 +616,11 @@ function processResult(result) {
   const nextTeam = queue.shift();
   currentTeamA = winner;
   currentTeamB = nextTeam;
+  teamNameA = winnerName;
+  teamNameB = 'Time ' + (Math.floor(Math.random() * 900) + 100);
 
+  resetGoals();
+  swapSource = null;
   renderMatchScreen();
   resetTimerState();
   saveState();
@@ -439,6 +639,10 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+function escapeJs(text) {
+  return text.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
 // --- Init ---

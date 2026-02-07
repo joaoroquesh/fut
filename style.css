@@ -275,6 +275,7 @@ h2 {
   padding: 6px 12px;
   background: var(--black-light);
   border-radius: 8px;
+  flex: 1;
 }
 
 /* Match Screen */
@@ -299,6 +300,15 @@ h2 {
   margin-bottom: 8px;
 }
 
+.match-team-card h3.editable {
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.match-team-card h3.editable:hover {
+  opacity: 0.7;
+}
+
 .match-team-card .players {
   display: flex;
   flex-direction: column;
@@ -315,6 +325,92 @@ h2 {
   font-size: 1.2rem;
   font-weight: bold;
   color: var(--gray);
+}
+
+/* Swap players */
+.player-swap {
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+}
+
+.player-swap:hover {
+  background: rgba(255, 107, 0, 0.15);
+  border-color: var(--orange);
+}
+
+.player-swap.selected {
+  background: var(--orange);
+  color: var(--white);
+  border-color: var(--orange);
+}
+
+/* Score Section */
+.score-section {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 12px 0;
+}
+
+.score-team {
+  text-align: center;
+  flex: 1;
+}
+
+.score-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--gray);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.score-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.score-control button {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--orange);
+  background: transparent;
+  color: var(--orange);
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.score-control button:hover {
+  background: var(--orange);
+  color: var(--white);
+}
+
+.score-value {
+  font-size: 2.2rem;
+  font-weight: 700;
+  min-width: 36px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.score-x {
+  font-size: 1.5rem;
+  color: var(--gray);
+  font-weight: bold;
+  margin-top: 20px;
 }
 
 /* Timer */
@@ -342,10 +438,6 @@ h2 {
   gap: 12px;
 }
 
-.result-section.hidden {
-  display: none;
-}
-
 .result-buttons {
   display: flex;
   gap: 8px;
@@ -355,7 +447,7 @@ h2 {
   flex: 1;
   padding: 12px 8px;
   border-radius: 10px;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -367,9 +459,19 @@ h2 {
   color: var(--white);
 }
 
-.btn-team:hover, .btn-team.selected {
+.btn-team:hover {
+  background: rgba(255, 107, 0, 0.2);
+}
+
+.btn-team.selected {
   background: var(--orange);
   color: var(--white);
+}
+
+.btn-team.suggested {
+  border-color: var(--orange);
+  background: rgba(255, 107, 0, 0.25);
+  box-shadow: 0 0 12px rgba(255, 107, 0, 0.3);
 }
 
 .btn-draw {
@@ -378,9 +480,19 @@ h2 {
   color: var(--white);
 }
 
-.btn-draw:hover, .btn-draw.selected {
+.btn-draw:hover {
+  background: rgba(136, 136, 136, 0.2);
+}
+
+.btn-draw.selected {
   background: var(--gray);
   color: var(--white);
+}
+
+.btn-draw.suggested {
+  border-color: var(--gray);
+  background: rgba(136, 136, 136, 0.25);
+  box-shadow: 0 0 12px rgba(136, 136, 136, 0.3);
 }
 
 /* Match Queue */
@@ -406,6 +518,41 @@ h2 {
   font-style: italic;
   border-left: 3px solid var(--orange);
   padding-left: 9px;
+}
+
+/* Queue reorder */
+.queue-item-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.queue-item-reorder {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 24px;
+}
+
+.queue-arrow {
+  width: 24px;
+  height: 20px;
+  border: none;
+  background: var(--black-light);
+  color: var(--gray);
+  font-size: 0.65rem;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.queue-arrow:hover {
+  background: var(--orange);
+  color: var(--white);
 }
 
 /* Danger button */
@@ -504,6 +651,15 @@ h2 {
   .match-team-card .players span {
     font-size: 0.8rem;
   }
+
+  .score-value {
+    font-size: 1.8rem;
+  }
+
+  .score-control button {
+    width: 40px;
+    height: 40px;
+  }
 }
 
 /* Touch-friendly: larger tap targets */
@@ -520,6 +676,16 @@ h2 {
   .player-tag .remove {
     font-size: 1.1rem;
     padding: 4px;
+  }
+
+  .player-swap {
+    padding: 6px 10px;
+  }
+
+  .queue-arrow {
+    width: 32px;
+    height: 28px;
+    font-size: 0.75rem;
   }
 }
 
