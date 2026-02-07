@@ -509,26 +509,58 @@ h2 {
   margin-bottom: 6px;
 }
 
-.match-queue .queue-item {
-  font-size: 0.8rem;
-}
-
-.match-queue .queue-item.waiting {
-  color: var(--orange);
-  font-style: italic;
-  border-left: 3px solid var(--orange);
-  padding-left: 9px;
-}
-
-/* Queue reorder */
-.queue-item-row {
+/* Individual player queue */
+.queue-player-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 4px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  margin-bottom: 3px;
+  background: var(--black-light);
+  font-size: 0.85rem;
+  color: var(--gray);
 }
 
-.queue-item-reorder {
+.queue-player-row.queue-next {
+  border-left: 3px solid var(--orange);
+  color: var(--white);
+}
+
+.queue-player-pos {
+  font-size: 0.75rem;
+  color: var(--gray);
+  min-width: 20px;
+}
+
+.queue-badge {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--orange);
+  background: rgba(255, 107, 0, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.queue-player-item {
+  font-size: 0.85rem;
+  color: var(--gray);
+  padding: 4px 10px;
+  background: var(--black-light);
+  border-radius: 8px;
+  margin-bottom: 3px;
+}
+
+.queue-player-item.queue-next {
+  border-left: 3px solid var(--orange);
+  color: var(--white);
+}
+
+/* Queue reorder */
+.queue-player-reorder {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -539,7 +571,7 @@ h2 {
   width: 24px;
   height: 20px;
   border: none;
-  background: var(--black-light);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--gray);
   font-size: 0.65rem;
   cursor: pointer;
