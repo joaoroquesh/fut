@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1A1A1A">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Fut da Galera</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- TELA 1: Configuração -->
+  <div id="screen-setup" class="screen active">
+    <h1>Fut da Galera</h1>
+
+    <div class="config-section">
+      <label>Jogadores por time</label>
+      <div class="number-control">
+        <button onclick="adjustNumber('playersPerTeam', -1)">−</button>
+        <span id="playersPerTeam">5</span>
+        <button onclick="adjustNumber('playersPerTeam', 1)">+</button>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <label>Tempo por jogo (minutos)</label>
+      <div class="number-control">
+        <button onclick="adjustNumber('gameTime', -1)">−</button>
+        <span id="gameTime">10</span>
+        <button onclick="adjustNumber('gameTime', 1)">+</button>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <label>Adicionar jogador</label>
+      <div class="player-input">
+        <input type="text" id="playerName" placeholder="Nome do jogador" onkeydown="if(event.key==='Enter') addPlayer()">
+        <button onclick="addPlayer()">+</button>
+      </div>
+    </div>
+
+    <div id="playerList" class="player-list"></div>
+
+    <div id="setupError" class="error-msg"></div>
+    <button class="btn-primary" onclick="startDraft()">Sortear Times</button>
+    <button class="btn-danger" onclick="clearAll()">Limpar Tudo</button>
+  </div>
+
+  <!-- TELA 2: Times sorteados -->
+  <div id="screen-teams" class="screen">
+    <h1>Times Sorteados</h1>
+    <div id="teamsDisplay" class="teams-display"></div>
+    <div id="queueDisplay" class="queue-display"></div>
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="goBackToSetup()">Voltar</button>
+      <button class="btn-primary" onclick="startMatch()">Iniciar Jogo</button>
+    </div>
+  </div>
+
+  <!-- TELA 3: Jogo -->
+  <div id="screen-match" class="screen">
+    <div id="matchTeams" class="match-teams"></div>
+
+    <div class="timer-display">
+      <span id="timer">10:00</span>
+    </div>
+
+    <div class="btn-row">
+      <button id="btnTimer" class="btn-primary" onclick="toggleTimer()">Iniciar</button>
+      <button class="btn-secondary" onclick="resetTimer()">Reiniciar</button>
+    </div>
+
+    <div id="resultSection" class="result-section hidden">
+      <h2>Resultado</h2>
+      <div class="result-buttons">
+        <button class="btn-team" id="btnTeamA" onclick="setResult('A')"></button>
+        <button class="btn-draw" onclick="setResult('draw')">Empate</button>
+        <button class="btn-team" id="btnTeamB" onclick="setResult('B')"></button>
+      </div>
+    </div>
+
+    <div id="matchQueue" class="match-queue"></div>
+
+    <div class="config-section add-to-queue">
+      <label>Adicionar jogador na fila</label>
+      <div class="player-input">
+        <input type="text" id="queuePlayerName" placeholder="Nome do jogador" onkeydown="if(event.key==='Enter') addPlayerToQueue()">
+        <button onclick="addPlayerToQueue()">+</button>
+      </div>
+    </div>
+
+    <button class="btn-secondary btn-back-match" onclick="goBack()">Voltar ao Sorteio</button>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

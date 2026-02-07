@@ -1,0 +1,531 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --orange: #FF6B00;
+  --orange-dark: #E05E00;
+  --black: #1A1A1A;
+  --black-light: #2A2A2A;
+  --white: #FFFFFF;
+  --gray: #888888;
+  --gray-light: #F0F0F0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--black);
+  color: var(--white);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+
+.screen {
+  display: none;
+  width: 100%;
+  max-width: 500px;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 0;
+}
+
+.screen.active {
+  display: flex;
+}
+
+h1 {
+  font-size: 1.8rem;
+  color: var(--orange);
+  text-align: center;
+}
+
+h2 {
+  font-size: 1.3rem;
+  color: var(--orange);
+}
+
+/* Config Section */
+.config-section {
+  width: 100%;
+}
+
+.config-section label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--gray);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.number-control {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.number-control button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--orange);
+  background: transparent;
+  color: var(--orange);
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.number-control button:hover {
+  background: var(--orange);
+  color: var(--white);
+}
+
+.number-control span {
+  font-size: 1.5rem;
+  font-weight: bold;
+  min-width: 30px;
+  text-align: center;
+}
+
+/* Player Input */
+.player-input {
+  display: flex;
+  gap: 8px;
+}
+
+.player-input input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 2px solid var(--black-light);
+  border-radius: 8px;
+  background: var(--black-light);
+  color: var(--white);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.player-input input:focus {
+  border-color: var(--orange);
+}
+
+.player-input button {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  border: none;
+  background: var(--orange);
+  color: var(--white);
+  font-size: 1.3rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.player-input button:hover {
+  background: var(--orange-dark);
+}
+
+/* Player List */
+.player-list {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.player-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--black-light);
+  border: 1px solid #333;
+  border-radius: 20px;
+  font-size: 0.9rem;
+}
+
+.player-tag .remove {
+  cursor: pointer;
+  color: var(--gray);
+  font-size: 0.8rem;
+  transition: color 0.2s;
+}
+
+.player-tag .remove:hover {
+  color: #ff4444;
+}
+
+/* Buttons */
+.btn-primary {
+  padding: 14px 32px;
+  border: none;
+  border-radius: 10px;
+  background: var(--orange);
+  color: var(--white);
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  width: 100%;
+}
+
+.btn-primary:hover {
+  background: var(--orange-dark);
+}
+
+.btn-secondary {
+  padding: 14px 32px;
+  border: 2px solid var(--orange);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--orange);
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: var(--orange);
+  color: var(--white);
+}
+
+.btn-row {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.btn-row .btn-secondary {
+  flex: 0 0 auto;
+}
+
+.btn-row .btn-primary {
+  flex: 1;
+}
+
+.error-msg {
+  color: #ff4444;
+  font-size: 0.9rem;
+  min-height: 20px;
+}
+
+/* Teams Display */
+.teams-display {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.team-card {
+  background: var(--black-light);
+  border-radius: 12px;
+  padding: 16px;
+  border-left: 4px solid var(--orange);
+}
+
+.team-card h3 {
+  font-size: 1rem;
+  color: var(--orange);
+  margin-bottom: 8px;
+}
+
+.team-card .players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.team-card .players span {
+  background: var(--black);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+}
+
+.queue-display {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.queue-display h3 {
+  font-size: 0.9rem;
+  color: var(--gray);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.queue-item {
+  font-size: 0.85rem;
+  color: var(--gray);
+  padding: 6px 12px;
+  background: var(--black-light);
+  border-radius: 8px;
+}
+
+/* Match Screen */
+.match-teams {
+  width: 100%;
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.match-team-card {
+  flex: 1;
+  background: var(--black-light);
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
+}
+
+.match-team-card h3 {
+  font-size: 0.9rem;
+  color: var(--orange);
+  margin-bottom: 8px;
+}
+
+.match-team-card .players {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.match-team-card .players span {
+  font-size: 0.85rem;
+}
+
+.vs-divider {
+  display: flex;
+  align-items: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: var(--gray);
+}
+
+/* Timer */
+.timer-display {
+  text-align: center;
+}
+
+.timer-display span {
+  font-size: 4rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 2px;
+}
+
+.timer-display.finished span {
+  color: var(--orange);
+}
+
+/* Result */
+.result-section {
+  width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.result-section.hidden {
+  display: none;
+}
+
+.result-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.result-buttons button {
+  flex: 1;
+  padding: 12px 8px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-team {
+  border: 2px solid var(--orange);
+  background: transparent;
+  color: var(--white);
+}
+
+.btn-team:hover, .btn-team.selected {
+  background: var(--orange);
+  color: var(--white);
+}
+
+.btn-draw {
+  border: 2px solid var(--gray);
+  background: transparent;
+  color: var(--white);
+}
+
+.btn-draw:hover, .btn-draw.selected {
+  background: var(--gray);
+  color: var(--white);
+}
+
+/* Match Queue */
+.match-queue {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.match-queue h3 {
+  font-size: 0.85rem;
+  color: var(--gray);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.match-queue .queue-item {
+  font-size: 0.8rem;
+}
+
+.match-queue .queue-item.waiting {
+  color: var(--orange);
+  font-style: italic;
+  border-left: 3px solid var(--orange);
+  padding-left: 9px;
+}
+
+/* Danger button */
+.btn-danger {
+  padding: 12px 32px;
+  border: 2px solid #ff4444;
+  border-radius: 10px;
+  background: transparent;
+  color: #ff4444;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.btn-danger:hover {
+  background: #ff4444;
+  color: var(--white);
+}
+
+/* Add to queue section in match */
+.add-to-queue {
+  margin-top: 8px;
+  border-top: 1px solid #333;
+  padding-top: 16px;
+}
+
+.btn-back-match {
+  width: 100%;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.timer-running {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Mobile optimizations */
+@media (max-width: 500px) {
+  body {
+    padding: 12px;
+  }
+
+  .screen {
+    gap: 16px;
+    padding: 10px 0;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  .number-control button {
+    width: 48px;
+    height: 48px;
+    font-size: 1.4rem;
+  }
+
+  .player-input input {
+    padding: 12px 14px;
+    font-size: 16px; /* prevents iOS zoom */
+  }
+
+  .player-input button {
+    width: 48px;
+    height: 48px;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    padding: 16px 24px;
+    font-size: 1rem;
+  }
+
+  .timer-display span {
+    font-size: 3.5rem;
+  }
+
+  .result-buttons {
+    flex-direction: column;
+  }
+
+  .result-buttons button {
+    padding: 14px;
+  }
+
+  .match-team-card {
+    padding: 10px;
+  }
+
+  .match-team-card .players span {
+    font-size: 0.8rem;
+  }
+}
+
+/* Touch-friendly: larger tap targets */
+@media (pointer: coarse) {
+  .number-control button {
+    width: 48px;
+    height: 48px;
+  }
+
+  .player-tag {
+    padding: 8px 14px;
+  }
+
+  .player-tag .remove {
+    font-size: 1.1rem;
+    padding: 4px;
+  }
+}
+
+/* Safe area for notch phones */
+@supports (padding: env(safe-area-inset-bottom)) {
+  body {
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+}
