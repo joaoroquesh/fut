@@ -19,7 +19,7 @@
       <label>Jogadores por time</label>
       <div class="number-control">
         <button onclick="adjustNumber('playersPerTeam', -1)">−</button>
-        <span id="playersPerTeam">5</span>
+        <span id="playersPerTeam">6</span>
         <button onclick="adjustNumber('playersPerTeam', 1)">+</button>
       </div>
     </div>
@@ -28,7 +28,7 @@
       <label>Tempo por jogo (minutos)</label>
       <div class="number-control">
         <button onclick="adjustNumber('gameTime', -1)">−</button>
-        <span id="gameTime">10</span>
+        <span id="gameTime">7</span>
         <button onclick="adjustNumber('gameTime', 1)">+</button>
       </div>
     </div>
@@ -41,6 +41,18 @@
       </div>
     </div>
 
+    <button class="btn-link" onclick="toggleBulkImport()">📋 Importar lista de nomes</button>
+
+    <div id="bulkImportSection" class="config-section hidden">
+      <label>Cole a lista (um nome por linha)</label>
+      <textarea id="bulkImportText" class="bulk-textarea" rows="5" placeholder="João&#10;Maria&#10;Pedro&#10;Ana"></textarea>
+      <button class="btn-primary btn-small" onclick="processBulkImport()">Adicionar todos</button>
+    </div>
+
+    <div class="player-list-header">
+      <span id="playerCount"></span>
+      <p class="star-tooltip">Toque no jogador para marcar como ⭐ estrela. Estrelas são distribuídas entre os times.</p>
+    </div>
     <div id="playerList" class="player-list"></div>
 
     <div id="setupError" class="error-msg"></div>
@@ -61,59 +73,123 @@
 
   <!-- TELA 3: Jogo -->
   <div id="screen-match" class="screen">
-    <div id="matchTeams" class="match-teams"></div>
+    <div class="match-tabs">
+      <button class="match-tab active" onclick="showMatchTab('game')">Jogo</button>
+      <button class="match-tab" onclick="showMatchTab('history')">Histórico</button>
+    </div>
 
-    <div id="scoreSection" class="score-section">
-      <div class="score-team">
-        <span class="score-label" id="scoreLabelA">Time A</span>
-        <div class="score-control">
-          <button onclick="adjustGoals('A', -1)">−</button>
-          <span id="goalsA" class="score-value">0</span>
-          <button onclick="adjustGoals('A', 1)">+</button>
+    <div id="matchGameView">
+      <div id="matchTeams" class="match-teams"></div>
+
+      <div id="scoreSection" class="score-section">
+        <div class="score-team">
+          <span class="score-label" id="scoreLabelA">Time A</span>
+          <div class="score-control">
+            <button onclick="adjustGoals('A', -1)">−</button>
+            <span id="goalsA" class="score-value">0</span>
+            <button onclick="adjustGoals('A', 1)">+</button>
+          </div>
+        </div>
+        <span class="score-x">×</span>
+        <div class="score-team">
+          <span class="score-label" id="scoreLabelB">Time B</span>
+          <div class="score-control">
+            <button onclick="adjustGoals('B', -1)">−</button>
+            <span id="goalsB" class="score-value">0</span>
+            <button onclick="adjustGoals('B', 1)">+</button>
+          </div>
         </div>
       </div>
-      <span class="score-x">×</span>
-      <div class="score-team">
-        <span class="score-label" id="scoreLabelB">Time B</span>
-        <div class="score-control">
-          <button onclick="adjustGoals('B', -1)">−</button>
-          <span id="goalsB" class="score-value">0</span>
-          <button onclick="adjustGoals('B', 1)">+</button>
+
+      <div class="timer-display">
+        <span id="timer">07:00</span>
+      </div>
+
+      <div class="btn-row">
+        <button id="btnTimer" class="btn-primary" onclick="toggleTimer()">Iniciar</button>
+        <button class="btn-secondary" onclick="resetTimer()">Reiniciar</button>
+      </div>
+
+      <div id="resultSection" class="result-section">
+        <h2>Resultado</h2>
+        <div class="result-buttons">
+          <button class="btn-result" id="btnTeamA" onclick="setResult('A')"></button>
+          <button class="btn-result" id="btnDraw" onclick="setResult('draw')">Empate</button>
+          <button class="btn-result" id="btnTeamB" onclick="setResult('B')"></button>
         </div>
       </div>
-    </div>
 
-    <div class="timer-display">
-      <span id="timer">10:00</span>
-    </div>
+      <div id="matchQueue" class="match-queue"></div>
 
-    <div class="btn-row">
-      <button id="btnTimer" class="btn-primary" onclick="toggleTimer()">Iniciar</button>
-      <button class="btn-secondary" onclick="resetTimer()">Reiniciar</button>
-    </div>
-
-    <div id="resultSection" class="result-section">
-      <h2>Resultado</h2>
-      <div class="result-buttons">
-        <button class="btn-team" id="btnTeamA" onclick="setResult('A')"></button>
-        <button class="btn-draw" id="btnDraw" onclick="setResult('draw')">Empate</button>
-        <button class="btn-team" id="btnTeamB" onclick="setResult('B')"></button>
+      <div class="config-section add-to-queue">
+        <label>Adicionar jogador na fila</label>
+        <div class="player-input">
+          <label class="star-toggle-inline"><input type="checkbox" id="queuePlayerStar"><span>⭐</span></label>
+          <input type="text" id="queuePlayerName" placeholder="Nome do jogador" onkeydown="if(event.key==='Enter') addPlayerToQueue()">
+          <button onclick="addPlayerToQueue()">+</button>
+        </div>
       </div>
-    </div>
 
-    <div id="matchQueue" class="match-queue"></div>
+      <button class="btn-link" onclick="toggleMatchConfig()">⚙ Configurações</button>
 
-    <div class="config-section add-to-queue">
-      <label>Adicionar jogador na fila</label>
-      <div class="player-input">
-        <input type="text" id="queuePlayerName" placeholder="Nome do jogador" onkeydown="if(event.key==='Enter') addPlayerToQueue()">
-        <button onclick="addPlayerToQueue()">+</button>
+      <div id="matchConfigSection" class="match-config hidden">
+        <div class="config-section">
+          <label>Jogadores por time</label>
+          <div class="number-control">
+            <button onclick="adjustMatchConfig('matchPlayersPerTeam', -1)">−</button>
+            <span id="matchPlayersPerTeam">6</span>
+            <button onclick="adjustMatchConfig('matchPlayersPerTeam', 1)">+</button>
+          </div>
+        </div>
+        <div class="config-section">
+          <label>Tempo por jogo (minutos)</label>
+          <div class="number-control">
+            <button onclick="adjustMatchConfig('matchGameTime', -1)">−</button>
+            <span id="matchGameTime">7</span>
+            <button onclick="adjustMatchConfig('matchGameTime', 1)">+</button>
+          </div>
+        </div>
+        <button class="btn-primary btn-small" onclick="applyMatchConfig()">Salvar</button>
       </div>
+
+      <button class="btn-secondary btn-back-match" onclick="goBack()">Voltar ao Sorteio</button>
     </div>
 
-    <button class="btn-secondary btn-back-match" onclick="goBack()">Voltar ao Sorteio</button>
+    <div id="matchHistoryView" class="hidden"></div>
   </div>
 
-  <script src="app.js"></script>
+  <!-- Modal: Player Action (long-press) -->
+  <div id="playerActionModal" class="modal-overlay hidden" onclick="if(event.target===this) closePlayerActionModal()">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="playerActionTitle"></h3>
+        <button class="modal-close" onclick="closePlayerActionModal()">&times;</button>
+      </div>
+      <div id="playerActionList" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Modal: Result Confirmation -->
+  <div id="resultConfirmModal" class="modal-overlay hidden" onclick="if(event.target===this) cancelResult()">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Confirmar Resultado</h3>
+        <button class="modal-close" onclick="cancelResult()">&times;</button>
+      </div>
+      <div id="resultConfirmBody" class="modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn-secondary btn-small" onclick="cancelResult()">Cancelar</button>
+        <button class="btn-primary btn-small" onclick="confirmResult()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/utils.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/stars.js"></script>
+  <script src="js/setup.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/timer.js"></script>
+  <script src="js/match.js"></script>
 </body>
 </html>
