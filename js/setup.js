@@ -47,6 +47,10 @@ function renderPlayerList() {
         text += ` · ${numTeams} times`;
         if (sobra > 0) text += ` + ${sobra} na fila`;
       }
+      const starCount = starPlayers.filter(s => players.includes(s)).length;
+      if (starCount > 0) {
+        text += ` · ⭐ ${starCount}`;
+      }
       countEl.textContent = text;
     } else {
       countEl.textContent = '';
@@ -75,7 +79,7 @@ function processBulkImport() {
       cleaned = cleaned.replace(/^\d+[\.\)\-\s]\s*/, '');     // "1.", "2)", "3-"
       cleaned = cleaned.replace(/^[\-\u2013\u2014]+\s*/, '');  // leading hyphens/dashes
       cleaned = cleaned.replace(/\s*\([^)]*\)/g, '');          // text in parentheses
-      cleaned = cleaned.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '');  // emojis
+      cleaned = cleaned.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '');  // emojis + skin tones + flags
       return cleaned.trim();
     })
     .filter(n => n.length > 0);

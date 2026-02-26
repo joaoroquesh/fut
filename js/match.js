@@ -558,8 +558,38 @@ function computeNextState(result) {
     // Pull next 2 teams from the FRONT of the queue
     state.nextTeamA = tempQueue.splice(0, playersPerTeam);
     state.nextTeamB = tempQueue.splice(0, playersPerTeam);
-    state.nextQueue = tempQueue;
 
+    // Light star balancing — avoid 2+ stars on one team when other has 0
+    const starSet = new Set(starPlayers);
+    const starsA = state.nextTeamA.filter(p => starSet.has(p)).length;
+    const starsB = state.nextTeamB.filter(p => starSet.has(p)).length;
+    const diff = starsA - starsB;
+
+    if (diff > 1) {
+      // Team A has too many stars — swap star out for non-star from queue
+      for (let att = 0; att < Math.ceil(diff / 2); att++) {
+        const si = state.nextTeamA.findIndex(p => starSet.has(p));
+        const ni = tempQueue.findIndex(p => !starSet.has(p));
+        if (si !== -1 && ni !== -1) {
+          const t = state.nextTeamA[si];
+          state.nextTeamA[si] = tempQueue[ni];
+          tempQueue[ni] = t;
+        } else break;
+      }
+    } else if (diff < -1) {
+      // Team B has too many stars — swap star out for non-star from queue
+      for (let att = 0; att < Math.ceil(Math.abs(diff) / 2); att++) {
+        const si = state.nextTeamB.findIndex(p => starSet.has(p));
+        const ni = tempQueue.findIndex(p => !starSet.has(p));
+        if (si !== -1 && ni !== -1) {
+          const t = state.nextTeamB[si];
+          state.nextTeamB[si] = tempQueue[ni];
+          tempQueue[ni] = t;
+        } else break;
+      }
+    }
+
+    state.nextQueue = tempQueue;
     state.nextNameA = 'Novo Time';
     state.nextNameB = 'Novo Time';
   } else {
