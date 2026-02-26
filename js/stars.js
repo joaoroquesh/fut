@@ -34,15 +34,19 @@ function balancedDistribute(allPlayers, stars, teamSize) {
   // Create empty teams
   const teams = Array.from({ length: numTeams }, () => []);
 
-  // Round-robin distribute stars across teams
+  // Randomize which teams receive stars (so any team can end up without one)
+  const teamOrder = Array.from({ length: numTeams }, (_, i) => i);
+  shuffleArray(teamOrder);
+
+  // Round-robin distribute stars using randomized team order
   starList.forEach((p, i) => {
-    const teamIdx = i % numTeams;
+    const teamIdx = teamOrder[i % numTeams];
     if (teams[teamIdx].length < teamSize) {
       teams[teamIdx].push(p);
     } else {
-      // Team is full, find next with space
+      // Team is full, find next with space following randomized order
       for (let j = 1; j <= numTeams; j++) {
-        const idx = (teamIdx + j) % numTeams;
+        const idx = teamOrder[(i + j) % numTeams];
         if (teams[idx].length < teamSize) {
           teams[idx].push(p);
           break;
@@ -57,6 +61,11 @@ function balancedDistribute(allPlayers, stars, teamSize) {
     while (teams[t].length < teamSize && nonStarIdx < nonStarList.length) {
       teams[t].push(nonStarList[nonStarIdx++]);
     }
+  }
+
+  // Shuffle internal order of each team (stars don't always end up first)
+  for (let t = 0; t < numTeams; t++) {
+    shuffleArray(teams[t]);
   }
 
   // Remaining players (not enough for a full team)

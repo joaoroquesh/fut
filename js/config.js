@@ -15,6 +15,10 @@ function adjustNumber(id, delta) {
   }
   el.textContent = val;
   saveState();
+  // Update team math display when playersPerTeam changes
+  if (id === 'playersPerTeam' && typeof renderPlayerList === 'function') {
+    renderPlayerList();
+  }
 }
 
 // Match screen config — temp values until "Salvar"

@@ -113,6 +113,11 @@ function renderMatchScreen() {
     let html = '<h3>Fila de espera</h3><div class="queue-list">';
 
     playerQueue.forEach((p, i) => {
+      // Visual divider between virtual teams in queue
+      if (i > 0 && i % playersPerTeam === 0) {
+        html += '<div class="queue-team-divider"></div>';
+      }
+
       const isNext = i < playersPerTeam;
       const isSelected = swapSource && swapSource.queueIdx === i;
       let cls = 'queue-player-row';
@@ -123,16 +128,16 @@ function renderMatchScreen() {
       const display = (isStar ? '⭐ ' : '') + escapeHtml(p);
 
       html += `<div class="${cls}">`;
-      html += `<div class="queue-player-reorder">`;
-      if (i > 0) {
-        html += `<button class="queue-arrow" onclick="moveQueuePlayer(${i}, -1)">▲</button>`;
-      }
-      if (i < playerQueue.length - 1) {
-        html += `<button class="queue-arrow" onclick="moveQueuePlayer(${i}, 1)">▼</button>`;
-      }
-      html += `</div>`;
       html += `<span class="queue-player-pos">${i + 1}.</span>`;
-      html += `<span class="${playerCls}" onclick="selectQueuePlayerForSwap(${i})">${display}</span>`;
+      html += `<span class="${playerCls}"
+        onclick="selectQueuePlayerForSwap(${i})"
+        onmousedown="startQueueLongPress(${i}, event)"
+        onmouseup="cancelLongPress()"
+        onmouseleave="cancelLongPress()"
+        ontouchstart="startQueueLongPress(${i}, event)"
+        ontouchend="cancelLongPress()"
+        ontouchcancel="cancelLongPress()"
+      >${display}</span>`;
       if (isNext && i === 0) {
         html += `<span class="queue-badge">próximo time</span>`;
       }
@@ -285,14 +290,26 @@ function performSwap(targetTeam, targetIndex) {
   if (src.team) {
     const srcArr = src.team === 'A' ? currentTeamA : currentTeamB;
     const tgtArr = targetTeam === 'A' ? currentTeamA : currentTeamB;
-    const temp = srcArr[src.index];
-    srcArr[src.index] = tgtArr[targetIndex];
-    tgtArr[targetIndex] = temp;
+    const playerA = srcArr[src.index];
+    const playerB = tgtArr[targetIndex];
+    if (!confirm(`Trocar ${playerA} com ${playerB}?`)) {
+      swapSource = null;
+      renderMatchScreen();
+      return;
+    }
+    srcArr[src.index] = playerB;
+    tgtArr[targetIndex] = playerA;
   } else if (src.queueIdx !== undefined) {
     const tgtArr = targetTeam === 'A' ? currentTeamA : currentTeamB;
-    const temp = tgtArr[targetIndex];
-    tgtArr[targetIndex] = playerQueue[src.queueIdx];
-    playerQueue[src.queueIdx] = temp;
+    const playerA = playerQueue[src.queueIdx];
+    const playerB = tgtArr[targetIndex];
+    if (!confirm(`Trocar ${playerA} com ${playerB}?`)) {
+      swapSource = null;
+      renderMatchScreen();
+      return;
+    }
+    tgtArr[targetIndex] = playerA;
+    playerQueue[src.queueIdx] = playerB;
   }
 
   swapSource = null;
@@ -305,13 +322,25 @@ function performSwapWithQueue(queueIdx) {
 
   if (src.team) {
     const srcArr = src.team === 'A' ? currentTeamA : currentTeamB;
-    const temp = srcArr[src.index];
-    srcArr[src.index] = playerQueue[queueIdx];
-    playerQueue[queueIdx] = temp;
+    const playerA = srcArr[src.index];
+    const playerB = playerQueue[queueIdx];
+    if (!confirm(`Trocar ${playerA} com ${playerB}?`)) {
+      swapSource = null;
+      renderMatchScreen();
+      return;
+    }
+    srcArr[src.index] = playerB;
+    playerQueue[queueIdx] = playerA;
   } else if (src.queueIdx !== undefined) {
-    const temp = playerQueue[src.queueIdx];
-    playerQueue[src.queueIdx] = playerQueue[queueIdx];
-    playerQueue[queueIdx] = temp;
+    const playerA = playerQueue[src.queueIdx];
+    const playerB = playerQueue[queueIdx];
+    if (!confirm(`Trocar ${playerA} com ${playerB}?`)) {
+      swapSource = null;
+      renderMatchScreen();
+      return;
+    }
+    playerQueue[src.queueIdx] = playerB;
+    playerQueue[queueIdx] = playerA;
   }
 
   swapSource = null;
@@ -392,9 +421,15 @@ function renamePlayerAction(team, index) {
 function substitutePlayer(team, index, queueIdx) {
   closePlayerActionModal();
   const arr = team === 'A' ? currentTeamA : currentTeamB;
-  const temp = arr[index];
-  arr[index] = playerQueue[queueIdx];
-  playerQueue[queueIdx] = temp;
+  const playerOut = arr[index];
+  const playerIn = playerQueue[queueIdx];
+  if (!confirm(`Trocar ${playerOut} com ${playerIn}?`)) {
+    swapSource = null;
+    renderMatchScreen();
+    return;
+  }
+  arr[index] = playerIn;
+  playerQueue[queueIdx] = playerOut;
   swapSource = null;
   renderMatchScreen();
   saveState();
@@ -408,6 +443,85 @@ function moveQueuePlayer(fromIdx, direction) {
   const temp = playerQueue[fromIdx];
   playerQueue[fromIdx] = playerQueue[toIdx];
   playerQueue[toIdx] = temp;
+  renderMatchScreen();
+  saveState();
+}
+
+// --- Queue Long Press ---
+
+function startQueueLongPress(queueIdx, event) {
+  longPressTriggered = false;
+  if (event.type === 'touchstart') {
+    event.preventDefault();
+  }
+  longPressTimer = setTimeout(() => {
+    longPressTriggered = true;
+    const playerName = playerQueue[queueIdx];
+    showQueuePlayerActionModal(playerName, queueIdx);
+  }, 500);
+}
+
+function showQueuePlayerActionModal(playerName, queueIdx) {
+  const modal = document.getElementById('playerActionModal');
+  const title = document.getElementById('playerActionTitle');
+  const list = document.getElementById('playerActionList');
+
+  title.textContent = playerName;
+
+  let html = '';
+  html += `<button class="action-option" onclick="renameQueuePlayerAction(${queueIdx})">✏️ Renomear</button>`;
+
+  // Offer swap with team players
+  if (currentTeamA.length > 0 || currentTeamB.length > 0) {
+    html += `<div class="action-divider"></div>`;
+    html += `<p class="action-subtitle">Trocar com jogador do time:</p>`;
+    currentTeamA.forEach((p, ti) => {
+      const isStar = starPlayers.includes(p);
+      html += `<button class="action-option action-substitute" onclick="substituteQueueWithTeam(${queueIdx}, 'A', ${ti})">
+        ${isStar ? '⭐ ' : ''}${escapeHtml(p)} <span style="color:var(--gray);font-size:0.75rem">(${escapeHtml(teamNameA)})</span>
+      </button>`;
+    });
+    currentTeamB.forEach((p, ti) => {
+      const isStar = starPlayers.includes(p);
+      html += `<button class="action-option action-substitute" onclick="substituteQueueWithTeam(${queueIdx}, 'B', ${ti})">
+        ${isStar ? '⭐ ' : ''}${escapeHtml(p)} <span style="color:var(--gray);font-size:0.75rem">(${escapeHtml(teamNameB)})</span>
+      </button>`;
+    });
+  }
+
+  list.innerHTML = html;
+  modal.classList.remove('hidden');
+}
+
+function renameQueuePlayerAction(queueIdx) {
+  closePlayerActionModal();
+  const oldName = playerQueue[queueIdx];
+  const newName = prompt('Novo nome do jogador:', oldName);
+  if (newName !== null && newName.trim() !== '' && newName.trim() !== oldName) {
+    const trimmed = newName.trim();
+    playerQueue[queueIdx] = trimmed;
+    const pi = players.indexOf(oldName);
+    if (pi !== -1) players[pi] = trimmed;
+    const si = starPlayers.indexOf(oldName);
+    if (si !== -1) starPlayers[si] = trimmed;
+    renderMatchScreen();
+    saveState();
+  }
+}
+
+function substituteQueueWithTeam(queueIdx, team, teamIndex) {
+  closePlayerActionModal();
+  const arr = team === 'A' ? currentTeamA : currentTeamB;
+  const playerOut = arr[teamIndex];
+  const playerIn = playerQueue[queueIdx];
+  if (!confirm(`Trocar ${playerIn} com ${playerOut}?`)) {
+    swapSource = null;
+    renderMatchScreen();
+    return;
+  }
+  arr[teamIndex] = playerIn;
+  playerQueue[queueIdx] = playerOut;
+  swapSource = null;
   renderMatchScreen();
   saveState();
 }
@@ -434,28 +548,18 @@ function computeNextState(result) {
   };
 
   if (result === 'draw') {
-    // Both teams out — shuffle and send to end of queue
-    const allPlayers = [...currentTeamA, ...currentTeamB];
-    shuffleArray(allPlayers);
-    const tempQueue = [...playerQueue, ...allPlayers];
+    // Both teams out — shuffle among themselves and send to END of queue
+    const matchPlayers = [...currentTeamA, ...currentTeamB];
+    shuffleArray(matchPlayers);
 
-    // Use balancedDistribute for star balance
-    const { teams, remaining } = balancedDistribute(tempQueue, starPlayers, playersPerTeam);
+    // Preserve FIFO: existing queue first, then the players who just played
+    const tempQueue = [...playerQueue, ...matchPlayers];
 
-    if (teams.length >= 2) {
-      state.nextTeamA = teams[0];
-      state.nextTeamB = teams[1];
-      state.nextQueue = [...teams.slice(2).flat(), ...remaining];
-    } else if (teams.length === 1) {
-      state.nextTeamA = teams[0];
-      state.nextTeamB = remaining.splice(0, playersPerTeam);
-      state.nextQueue = remaining;
-    } else {
-      // Edge case: not enough players
-      state.nextTeamA = tempQueue.slice(0, playersPerTeam);
-      state.nextTeamB = tempQueue.slice(playersPerTeam, playersPerTeam * 2);
-      state.nextQueue = tempQueue.slice(playersPerTeam * 2);
-    }
+    // Pull next 2 teams from the FRONT of the queue
+    state.nextTeamA = tempQueue.splice(0, playersPerTeam);
+    state.nextTeamB = tempQueue.splice(0, playersPerTeam);
+    state.nextQueue = tempQueue;
+
     state.nextNameA = 'Novo Time';
     state.nextNameB = 'Novo Time';
   } else {
@@ -530,12 +634,12 @@ function showResultConfirmationModal(result) {
     resultText = (result === 'A' ? teamNameA : teamNameB) + ' Venceu';
   }
 
-  // Show star indicators in confirmation
+  // Show star indicators in confirmation — vertical layout
   function playerListHtml(players) {
     return players.map(p => {
       const isStar = starPlayers.includes(p);
-      return (isStar ? '⭐ ' : '') + escapeHtml(p);
-    }).join(', ');
+      return `<div class="confirm-player-item">${isStar ? '⭐ ' : ''}${escapeHtml(p)}</div>`;
+    }).join('');
   }
 
   body.innerHTML = `

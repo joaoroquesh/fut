@@ -36,10 +36,21 @@ function renderPlayerList() {
     </div>`;
   }).join('');
 
-  // Update player count
+  // Update player count with team math
   const countEl = document.getElementById('playerCount');
   if (countEl) {
-    countEl.textContent = players.length > 0 ? `${players.length} jogador${players.length !== 1 ? 'es' : ''}` : '';
+    if (players.length > 0) {
+      const numTeams = Math.floor(players.length / playersPerTeam);
+      const sobra = players.length % playersPerTeam;
+      let text = `${players.length} jogador${players.length !== 1 ? 'es' : ''}`;
+      if (numTeams >= 2) {
+        text += ` · ${numTeams} times`;
+        if (sobra > 0) text += ` + ${sobra} na fila`;
+      }
+      countEl.textContent = text;
+    } else {
+      countEl.textContent = '';
+    }
   }
 }
 
@@ -59,7 +70,14 @@ function processBulkImport() {
   if (!text.trim()) return;
 
   const names = text.split('\n')
-    .map(n => n.trim())
+    .map(n => {
+      let cleaned = n.trim();
+      cleaned = cleaned.replace(/^\d+[\.\)\-\s]\s*/, '');     // "1.", "2)", "3-"
+      cleaned = cleaned.replace(/^[\-\u2013\u2014]+\s*/, '');  // leading hyphens/dashes
+      cleaned = cleaned.replace(/\s*\([^)]*\)/g, '');          // text in parentheses
+      cleaned = cleaned.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '');  // emojis
+      return cleaned.trim();
+    })
     .filter(n => n.length > 0);
 
   let added = 0;
