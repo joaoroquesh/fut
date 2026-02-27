@@ -3,10 +3,14 @@
 // ===========================================
 
 function resetTimerState() {
-  clearInterval(timerInterval);
-  timerInterval = null;
-  timerRunning = false;
-  timerSeconds = gameTimeMinutes * 60;
+  const court = activeCourt();
+  if (!court) return;
+  if (court.timerInterval) {
+    clearInterval(court.timerInterval);
+    court.timerInterval = null;
+  }
+  court.timerRunning = false;
+  court.timerSeconds = gameTimeMinutes * 60;
   updateTimerDisplay();
   document.getElementById('btnTimer').textContent = 'Iniciar';
   document.querySelector('.timer-display').classList.remove('finished');
@@ -14,7 +18,9 @@ function resetTimerState() {
 }
 
 function toggleTimer() {
-  if (timerRunning) {
+  const court = activeCourt();
+  if (!court) return;
+  if (court.timerRunning) {
     pauseTimer();
   } else {
     startTimer();
@@ -22,31 +28,51 @@ function toggleTimer() {
 }
 
 function startTimer() {
-  if (timerSeconds <= 0) return;
-  timerRunning = true;
+  const court = activeCourt();
+  if (!court || court.timerSeconds <= 0) return;
+  court.timerRunning = true;
   removeTimerEndedGlow();
   document.getElementById('btnTimer').textContent = 'Pausar';
   document.getElementById('timer').classList.add('timer-running');
 
-  timerInterval = setInterval(() => {
-    timerSeconds--;
-    updateTimerDisplay();
-    if (timerSeconds <= 0) {
-      clearInterval(timerInterval);
-      timerRunning = false;
-      document.getElementById('btnTimer').textContent = 'Fim!';
-      document.getElementById('timer').classList.remove('timer-running');
-      document.querySelector('.timer-display').classList.add('finished');
+  const courtIndex = activeCourtIndex;
+  court.timerInterval = setInterval(() => {
+    court.timerSeconds--;
+    // Only update DOM if this court is still the active one
+    if (activeCourtIndex === courtIndex) {
+      updateTimerDisplay();
+    }
+    if (court.timerSeconds <= 0) {
+      clearInterval(court.timerInterval);
+      court.timerInterval = null;
+      court.timerRunning = false;
+      // Always play alert regardless of active court
       playTimerEndAlert();
+      if (activeCourtIndex === courtIndex) {
+        document.getElementById('btnTimer').textContent = 'Fim!';
+        document.getElementById('timer').classList.remove('timer-running');
+        document.querySelector('.timer-display').classList.add('finished');
+      }
+      // Update court tabs to remove timer dot
+      if (typeof renderCourtTabs === 'function') renderCourtTabs();
     }
   }, 1000);
+
+  // Update court tabs to show timer dot
+  if (typeof renderCourtTabs === 'function') renderCourtTabs();
 }
 
 function pauseTimer() {
-  clearInterval(timerInterval);
-  timerRunning = false;
+  const court = activeCourt();
+  if (!court) return;
+  if (court.timerInterval) {
+    clearInterval(court.timerInterval);
+    court.timerInterval = null;
+  }
+  court.timerRunning = false;
   document.getElementById('btnTimer').textContent = 'Continuar';
   document.getElementById('timer').classList.remove('timer-running');
+  if (typeof renderCourtTabs === 'function') renderCourtTabs();
 }
 
 function resetTimer() {
@@ -56,10 +82,36 @@ function resetTimer() {
 }
 
 function updateTimerDisplay() {
-  const min = Math.floor(timerSeconds / 60);
-  const sec = timerSeconds % 60;
+  const court = activeCourt();
+  if (!court) return;
+  const min = Math.floor(court.timerSeconds / 60);
+  const sec = court.timerSeconds % 60;
   document.getElementById('timer').textContent =
     `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+
+/**
+ * Syncs the timer DOM to reflect the active court's timer state.
+ * Called when switching between courts.
+ */
+function syncTimerDisplay() {
+  const court = activeCourt();
+  if (!court) return;
+  updateTimerDisplay();
+
+  if (court.timerRunning) {
+    document.getElementById('btnTimer').textContent = 'Pausar';
+    document.getElementById('timer').classList.add('timer-running');
+    document.querySelector('.timer-display').classList.remove('finished');
+  } else if (court.timerSeconds <= 0) {
+    document.getElementById('btnTimer').textContent = 'Fim!';
+    document.getElementById('timer').classList.remove('timer-running');
+    document.querySelector('.timer-display').classList.add('finished');
+  } else {
+    document.getElementById('btnTimer').textContent = 'Iniciar';
+    document.getElementById('timer').classList.remove('timer-running');
+    document.querySelector('.timer-display').classList.remove('finished');
+  }
 }
 
 // --- Timer End Alert ---
@@ -80,7 +132,7 @@ function playTimerEndAlert() {
     navigator.vibrate([300, 100, 300, 100, 300]);
   }
 
-  // Visual glow
+  // Visual glow (always on match screen)
   document.getElementById('screen-match').classList.add('timer-ended-glow');
 }
 

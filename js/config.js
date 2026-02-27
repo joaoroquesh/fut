@@ -12,11 +12,14 @@ function adjustNumber(id, delta) {
   } else if (id === 'gameTime') {
     val = Math.max(1, Math.min(60, val));
     gameTimeMinutes = val;
+  } else if (id === 'numCourts') {
+    val = Math.max(1, Math.min(4, val));
+    numCourts = val;
   }
   el.textContent = val;
   saveState();
-  // Update team math display when playersPerTeam changes
-  if (id === 'playersPerTeam' && typeof renderPlayerList === 'function') {
+  // Update team math display when playersPerTeam or numCourts changes
+  if ((id === 'playersPerTeam' || id === 'numCourts') && typeof renderPlayerList === 'function') {
     renderPlayerList();
   }
 }
@@ -74,28 +77,29 @@ function applyMatchConfig() {
 }
 
 /**
- * Adapta os times atuais ao novo tamanho.
- * Lista ordenada: [teamA, teamB, fila]
+ * Adapta os times de TODOS os courts ao novo tamanho.
  * Aumentar: pegar da fila e adicionar aos times
  * Diminuir: remover dos times e colocar no início da fila
  */
 function adaptTeamsToNewSize(oldSize, newSize) {
-  if (newSize > oldSize) {
-    // Increase: add players from queue front to each team
-    const needed = newSize - oldSize;
-    for (let i = 0; i < needed; i++) {
-      if (playerQueue.length > 0) {
-        currentTeamA.push(playerQueue.shift());
+  courts.forEach(court => {
+    if (newSize > oldSize) {
+      // Increase: add players from queue front to each team
+      const needed = newSize - oldSize;
+      for (let i = 0; i < needed; i++) {
+        if (playerQueue.length > 0) {
+          court.teamA.push(playerQueue.shift());
+        }
+        if (playerQueue.length > 0) {
+          court.teamB.push(playerQueue.shift());
+        }
       }
-      if (playerQueue.length > 0) {
-        currentTeamB.push(playerQueue.shift());
-      }
+    } else if (newSize < oldSize) {
+      // Decrease: remove from end of each team, prepend to queue
+      const excess = oldSize - newSize;
+      const removedFromA = court.teamA.splice(newSize, excess);
+      const removedFromB = court.teamB.splice(newSize, excess);
+      playerQueue = [...removedFromA, ...removedFromB, ...playerQueue];
     }
-  } else if (newSize < oldSize) {
-    // Decrease: remove from end of each team, prepend to queue
-    const excess = oldSize - newSize;
-    const removedFromA = currentTeamA.splice(newSize, excess);
-    const removedFromB = currentTeamB.splice(newSize, excess);
-    playerQueue = [...removedFromA, ...removedFromB, ...playerQueue];
-  }
+  });
 }

@@ -34,6 +34,15 @@
     </div>
 
     <div class="config-section">
+      <label>Jogos simultâneos (quadras)</label>
+      <div class="number-control">
+        <button onclick="adjustNumber('numCourts', -1)">−</button>
+        <span id="numCourts">1</span>
+        <button onclick="adjustNumber('numCourts', 1)">+</button>
+      </div>
+    </div>
+
+    <div class="config-section">
       <label>Adicionar jogador</label>
       <div class="player-input">
         <input type="text" id="playerName" placeholder="Nome do jogador" onkeydown="if(event.key==='Enter') addPlayer()">
@@ -79,6 +88,7 @@
     </div>
 
     <div id="matchGameView">
+      <div id="courtTabs" class="court-tabs hidden"></div>
       <div id="matchTeams" class="match-teams"></div>
 
       <div id="scoreSection" class="score-section">
@@ -150,6 +160,11 @@
           </div>
         </div>
         <button class="btn-primary btn-small" onclick="applyMatchConfig()">Salvar</button>
+      </div>
+
+      <div id="courtManagement" class="court-management hidden">
+        <button class="btn-link" onclick="addCourt()">➕ Adicionar Jogo</button>
+        <button class="btn-link btn-link-danger" onclick="removeCourt()">➖ Remover Jogo</button>
       </div>
 
       <button class="btn-secondary btn-back-match" onclick="goBack()">Voltar ao Sorteio</button>

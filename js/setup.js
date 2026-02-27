@@ -43,10 +43,26 @@ function renderPlayerList() {
       const numTeams = Math.floor(players.length / playersPerTeam);
       const sobra = players.length % playersPerTeam;
       let text = `${players.length} jogador${players.length !== 1 ? 'es' : ''}`;
-      if (numTeams >= 2) {
-        text += ` · ${numTeams} times`;
-        if (sobra > 0) text += ` + ${sobra} na fila`;
+
+      const minTeams = numCourts * 2;
+      if (numTeams >= minTeams) {
+        if (numCourts > 1) {
+          text += ` · ${numCourts} quadras`;
+        } else {
+          text += ` · ${numTeams} times`;
+        }
+        const queuePlayers = (numTeams - minTeams) * playersPerTeam + sobra;
+        if (queuePlayers > 0) text += ` + ${queuePlayers} na fila`;
+      } else if (numTeams >= 2) {
+        if (numCourts > 1) {
+          const possibleCourts = Math.floor(numTeams / 2);
+          text += ` · ${possibleCourts}/${numCourts} quadras`;
+        } else {
+          text += ` · ${numTeams} times`;
+          if (sobra > 0) text += ` + ${sobra} na fila`;
+        }
       }
+
       const starCount = starPlayers.filter(s => players.includes(s)).length;
       if (starCount > 0) {
         text += ` · ⭐ ${starCount}`;
@@ -104,29 +120,38 @@ function processBulkImport() {
 // --- Draft ---
 
 function startDraft() {
-  const minPlayers = playersPerTeam * 2;
+  const minPlayers = playersPerTeam * numCourts * 2;
   if (players.length < minPlayers) {
-    showError(`Precisa de pelo menos ${minPlayers} jogadores (${playersPerTeam} por time × 2 times)`);
+    if (numCourts > 1) {
+      showError(`Precisa de pelo menos ${minPlayers} jogadores (${playersPerTeam} × ${numCourts * 2} times)`);
+    } else {
+      showError(`Precisa de pelo menos ${minPlayers} jogadores (${playersPerTeam} por time × 2 times)`);
+    }
     return;
   }
 
   // Use balanced distribution across ALL teams (including queue teams)
   const { teams, remaining } = balancedDistribute([...players], starPlayers, playersPerTeam);
 
-  if (teams.length < 2) {
-    showError('Não há jogadores suficientes para formar 2 times');
+  if (teams.length < numCourts * 2) {
+    showError(`Não há jogadores suficientes para formar ${numCourts} jogo${numCourts > 1 ? 's' : ''}`);
     return;
   }
 
-  currentTeamA = teams[0];
-  currentTeamB = teams[1];
-  // Queue: remaining virtual teams flattened + leftover players
-  playerQueue = [...teams.slice(2).flat(), ...remaining];
+  // Create courts
+  courts = [];
+  for (let i = 0; i < numCourts; i++) {
+    const court = createCourt(i);
+    court.teamA = teams[i * 2];
+    court.teamB = teams[i * 2 + 1];
+    courts.push(court);
+  }
 
-  teamNameA = 'Time A';
-  teamNameB = 'Time B';
+  // Queue: remaining virtual teams flattened + leftover players
+  playerQueue = [...teams.slice(numCourts * 2).flat(), ...remaining];
+
+  activeCourtIndex = 0;
   draftStarted = true;
-  matchHistory = [];
 
   renderTeamsScreen();
   showScreen('screen-teams');
@@ -136,8 +161,15 @@ function startDraft() {
 function renderTeamsScreen() {
   const container = document.getElementById('teamsDisplay');
   let html = '';
-  html += renderTeamCard(teamNameA, currentTeamA);
-  html += renderTeamCard(teamNameB, currentTeamB);
+
+  courts.forEach((court, i) => {
+    if (courts.length > 1) {
+      html += `<div class="court-heading">Quadra ${i + 1}</div>`;
+    }
+    html += renderTeamCard(court.nameA, court.teamA);
+    html += renderTeamCard(court.nameB, court.teamB);
+  });
+
   container.innerHTML = html;
 
   const queueContainer = document.getElementById('queueDisplay');

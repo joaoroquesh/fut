@@ -5,8 +5,11 @@
 // --- Navigation ---
 
 function startMatch() {
-  goalsA = 0;
-  goalsB = 0;
+  courts.forEach(c => {
+    c.goalsA = 0;
+    c.goalsB = 0;
+  });
+  activeCourtIndex = 0;
   swapSource = null;
   removeTimerEndedGlow();
   renderMatchScreen();
@@ -17,8 +20,14 @@ function startMatch() {
 }
 
 function goBack() {
-  clearInterval(timerInterval);
-  timerRunning = false;
+  // Stop ALL court timers
+  courts.forEach(c => {
+    if (c.timerInterval) {
+      clearInterval(c.timerInterval);
+      c.timerInterval = null;
+    }
+    c.timerRunning = false;
+  });
   swapSource = null;
   removeTimerEndedGlow();
   showScreen('screen-teams');
@@ -30,6 +39,116 @@ function goBackToSetup() {
   draftStarted = false;
   saveState();
   showScreen('screen-setup');
+}
+
+// --- Court Switching ---
+
+function switchCourt(index) {
+  if (index < 0 || index >= courts.length) return;
+  if (index === activeCourtIndex) return;
+  activeCourtIndex = index;
+  swapSource = null;
+  pendingResult = null;
+  removeTimerEndedGlow();
+  renderMatchScreen();
+  syncTimerDisplay();
+  saveState();
+}
+
+function renderCourtTabs() {
+  const tabsContainer = document.getElementById('courtTabs');
+  if (!tabsContainer) return;
+
+  if (courts.length <= 1) {
+    tabsContainer.classList.add('hidden');
+    return;
+  }
+
+  tabsContainer.classList.remove('hidden');
+  let html = '';
+  courts.forEach((court, i) => {
+    const active = i === activeCourtIndex ? ' active' : '';
+    let timerDot = '';
+    if (court.timerRunning) {
+      timerDot = '<span class="court-timer-dot">●</span>';
+    } else if (court.timerSeconds <= 0) {
+      timerDot = '<span class="court-timer-dot finished">●</span>';
+    }
+    html += `<button class="court-tab${active}" onclick="switchCourt(${i})">
+      Quadra ${i + 1} ${timerDot}
+    </button>`;
+  });
+  tabsContainer.innerHTML = html;
+}
+
+// --- Court Management ---
+
+function addCourt() {
+  if (playerQueue.length < playersPerTeam * 2) {
+    alert(`Precisa de pelo menos ${playersPerTeam * 2} jogadores na fila para adicionar um jogo.`);
+    return;
+  }
+
+  // Pull players from queue and form 2 balanced teams
+  const pooled = playerQueue.splice(0, playersPerTeam * 2);
+  const { teams, remaining } = balancedDistribute(pooled, starPlayers, playersPerTeam);
+
+  if (teams.length >= 2) {
+    const newCourt = createCourt(courts.length);
+    newCourt.teamA = teams[0];
+    newCourt.teamB = teams[1];
+    newCourt.timerSeconds = gameTimeMinutes * 60;
+    // Put any extra back in queue
+    if (remaining.length > 0) {
+      playerQueue.unshift(...remaining);
+    }
+    courts.push(newCourt);
+    numCourts = courts.length;
+    activeCourtIndex = courts.length - 1; // Switch to new court
+    renderMatchScreen();
+    syncTimerDisplay();
+    saveState();
+  } else {
+    // Put players back
+    playerQueue.unshift(...pooled);
+    alert('Erro ao formar times. Jogadores devolvidos à fila.');
+  }
+}
+
+function removeCourt() {
+  if (courts.length <= 1) {
+    alert('Precisa manter pelo menos 1 jogo.');
+    return;
+  }
+
+  const court = activeCourt();
+  if (!confirm(`Remover Quadra ${court.id + 1}? Os jogadores voltarão para a fila.`)) return;
+
+  // Clear timer
+  if (court.timerInterval) {
+    clearInterval(court.timerInterval);
+    court.timerInterval = null;
+  }
+
+  // Return players to queue
+  const returned = [...(court.teamA || []), ...(court.teamB || [])];
+  playerQueue.push(...returned);
+
+  // Remove court
+  courts.splice(activeCourtIndex, 1);
+  numCourts = courts.length;
+
+  // Renumber court IDs
+  courts.forEach((c, i) => c.id = i);
+
+  // Clamp activeCourtIndex
+  if (activeCourtIndex >= courts.length) {
+    activeCourtIndex = courts.length - 1;
+  }
+
+  renderMatchScreen();
+  syncTimerDisplay();
+  saveState();
 }
 
 // --- Match Tabs ---
@@ -56,6 +175,22 @@ function showMatchTab(tab) {
 // --- Render Match Screen ---
 
 function renderMatchScreen() {
+  const court = activeCourt();
+  if (!court) return;
+
+  // Court tabs
+  renderCourtTabs();
+
+  // Court management buttons visibility
+  const mgmt = document.getElementById('courtManagement');
+  if (mgmt) {
+    if (courts.length > 1 || playerQueue.length >= playersPerTeam * 2) {
+      mgmt.classList.remove('hidden');
+    } else {
+      mgmt.classList.add('hidden');
+    }
+  }
+
   const container = document.getElementById('matchTeams');
 
   function playerHtml(name, team, index) {
@@ -76,27 +211,27 @@ function renderMatchScreen() {
 
   container.innerHTML = `
     <div class="match-team-card">
-      <h3 class="editable" onclick="editTeamName('A')">${escapeHtml(teamNameA)} ✎</h3>
+      <h3 class="editable" onclick="editTeamName('A')">${escapeHtml(court.nameA)} ✎</h3>
       <div class="players">
-        ${currentTeamA.map((p, i) => playerHtml(p, 'A', i)).join('')}
+        ${court.teamA.map((p, i) => playerHtml(p, 'A', i)).join('')}
       </div>
     </div>
     <div class="vs-divider">VS</div>
     <div class="match-team-card">
-      <h3 class="editable" onclick="editTeamName('B')">${escapeHtml(teamNameB)} ✎</h3>
+      <h3 class="editable" onclick="editTeamName('B')">${escapeHtml(court.nameB)} ✎</h3>
       <div class="players">
-        ${currentTeamB.map((p, i) => playerHtml(p, 'B', i)).join('')}
+        ${court.teamB.map((p, i) => playerHtml(p, 'B', i)).join('')}
       </div>
     </div>
   `;
 
-  document.getElementById('scoreLabelA').textContent = teamNameA;
-  document.getElementById('scoreLabelB').textContent = teamNameB;
-  document.getElementById('goalsA').textContent = goalsA;
-  document.getElementById('goalsB').textContent = goalsB;
+  document.getElementById('scoreLabelA').textContent = court.nameA;
+  document.getElementById('scoreLabelB').textContent = court.nameB;
+  document.getElementById('goalsA').textContent = court.goalsA;
+  document.getElementById('goalsB').textContent = court.goalsB;
 
-  document.getElementById('btnTeamA').textContent = teamNameA + ' Venceu';
-  document.getElementById('btnTeamB').textContent = teamNameB + ' Venceu';
+  document.getElementById('btnTeamA').textContent = court.nameA + ' Venceu';
+  document.getElementById('btnTeamB').textContent = court.nameB + ' Venceu';
 
   updateResultHighlight();
 
@@ -106,7 +241,11 @@ function renderMatchScreen() {
   if (mpt) mpt.textContent = playersPerTeam;
   if (mgt) mgt.textContent = gameTimeMinutes;
 
-  // Queue display
+  // Queue display (shared across all courts)
+  renderQueueDisplay();
+}
+
+function renderQueueDisplay() {
   const queueContainer = document.getElementById('matchQueue');
 
   if (playerQueue.length > 0) {
@@ -154,13 +293,15 @@ function renderMatchScreen() {
 // --- Team Name Editing ---
 
 function editTeamName(team) {
-  const current = team === 'A' ? teamNameA : teamNameB;
+  const court = activeCourt();
+  if (!court) return;
+  const current = team === 'A' ? court.nameA : court.nameB;
   const newName = prompt('Nome do time:', current);
   if (newName !== null && newName.trim() !== '') {
     if (team === 'A') {
-      teamNameA = newName.trim();
+      court.nameA = newName.trim();
     } else {
-      teamNameB = newName.trim();
+      court.nameB = newName.trim();
     }
     renderMatchScreen();
     saveState();
@@ -170,25 +311,31 @@ function editTeamName(team) {
 // --- Goals ---
 
 function adjustGoals(team, delta) {
+  const court = activeCourt();
+  if (!court) return;
   if (team === 'A') {
-    goalsA = Math.max(0, goalsA + delta);
-    document.getElementById('goalsA').textContent = goalsA;
+    court.goalsA = Math.max(0, court.goalsA + delta);
+    document.getElementById('goalsA').textContent = court.goalsA;
   } else {
-    goalsB = Math.max(0, goalsB + delta);
-    document.getElementById('goalsB').textContent = goalsB;
+    court.goalsB = Math.max(0, court.goalsB + delta);
+    document.getElementById('goalsB').textContent = court.goalsB;
   }
   updateResultHighlight();
 }
 
 function resetGoals() {
-  goalsA = 0;
-  goalsB = 0;
+  const court = activeCourt();
+  if (!court) return;
+  court.goalsA = 0;
+  court.goalsB = 0;
   document.getElementById('goalsA').textContent = '0';
   document.getElementById('goalsB').textContent = '0';
   updateResultHighlight();
 }
 
 function updateResultHighlight() {
+  const court = activeCourt();
+  if (!court) return;
   const btnA = document.getElementById('btnTeamA');
   const btnB = document.getElementById('btnTeamB');
   const btnD = document.getElementById('btnDraw');
@@ -197,9 +344,9 @@ function updateResultHighlight() {
   btnB.classList.remove('suggested');
   btnD.classList.remove('suggested');
 
-  if (goalsA > goalsB) {
+  if (court.goalsA > court.goalsB) {
     btnA.classList.add('suggested');
-  } else if (goalsB > goalsA) {
+  } else if (court.goalsB > court.goalsA) {
     btnB.classList.add('suggested');
   } else {
     btnD.classList.add('suggested');
@@ -213,11 +360,13 @@ function addPlayerToQueue() {
   const name = input.value.trim();
   if (!name) return;
 
-  const allInGame = [
-    ...(currentTeamA || []),
-    ...(currentTeamB || []),
-    ...playerQueue
-  ];
+  // Check ALL courts + queue for duplicates
+  const allInGame = [];
+  courts.forEach(c => {
+    allInGame.push(...(c.teamA || []), ...(c.teamB || []));
+  });
+  allInGame.push(...playerQueue);
+
   if (allInGame.includes(name)) {
     // Visual feedback: flash red border
     input.classList.add('input-error');
@@ -286,10 +435,11 @@ function selectQueuePlayerForSwap(queueIdx) {
 
 function performSwap(targetTeam, targetIndex) {
   const src = swapSource;
+  const court = activeCourt();
 
   if (src.team) {
-    const srcArr = src.team === 'A' ? currentTeamA : currentTeamB;
-    const tgtArr = targetTeam === 'A' ? currentTeamA : currentTeamB;
+    const srcArr = src.team === 'A' ? court.teamA : court.teamB;
+    const tgtArr = targetTeam === 'A' ? court.teamA : court.teamB;
     const playerA = srcArr[src.index];
     const playerB = tgtArr[targetIndex];
     if (!confirm(`Trocar ${playerA} com ${playerB}?`)) {
@@ -300,7 +450,7 @@ function performSwap(targetTeam, targetIndex) {
     srcArr[src.index] = playerB;
     tgtArr[targetIndex] = playerA;
   } else if (src.queueIdx !== undefined) {
-    const tgtArr = targetTeam === 'A' ? currentTeamA : currentTeamB;
+    const tgtArr = targetTeam === 'A' ? court.teamA : court.teamB;
     const playerA = playerQueue[src.queueIdx];
     const playerB = tgtArr[targetIndex];
     if (!confirm(`Trocar ${playerA} com ${playerB}?`)) {
@@ -319,9 +469,10 @@ function performSwap(targetTeam, targetIndex) {
 
 function performSwapWithQueue(queueIdx) {
   const src = swapSource;
+  const court = activeCourt();
 
   if (src.team) {
-    const srcArr = src.team === 'A' ? currentTeamA : currentTeamB;
+    const srcArr = src.team === 'A' ? court.teamA : court.teamB;
     const playerA = srcArr[src.index];
     const playerB = playerQueue[queueIdx];
     if (!confirm(`Trocar ${playerA} com ${playerB}?`)) {
@@ -358,7 +509,8 @@ function startLongPress(team, index, event) {
   }
   longPressTimer = setTimeout(() => {
     longPressTriggered = true;
-    const playerName = team === 'A' ? currentTeamA[index] : currentTeamB[index];
+    const court = activeCourt();
+    const playerName = team === 'A' ? court.teamA[index] : court.teamB[index];
     showPlayerActionModal(playerName, team, index);
   }, 500);
 }
@@ -401,7 +553,8 @@ function closePlayerActionModal() {
 
 function renamePlayerAction(team, index) {
   closePlayerActionModal();
-  const arr = team === 'A' ? currentTeamA : currentTeamB;
+  const court = activeCourt();
+  const arr = team === 'A' ? court.teamA : court.teamB;
   const oldName = arr[index];
   const newName = prompt('Novo nome do jogador:', oldName);
   if (newName !== null && newName.trim() !== '' && newName.trim() !== oldName) {
@@ -420,7 +573,8 @@ function renamePlayerAction(team, index) {
 
 function substitutePlayer(team, index, queueIdx) {
   closePlayerActionModal();
-  const arr = team === 'A' ? currentTeamA : currentTeamB;
+  const court = activeCourt();
+  const arr = team === 'A' ? court.teamA : court.teamB;
   const playerOut = arr[index];
   const playerIn = playerQueue[queueIdx];
   if (!confirm(`Trocar ${playerOut} com ${playerIn}?`)) {
@@ -462,6 +616,7 @@ function startQueueLongPress(queueIdx, event) {
 }
 
 function showQueuePlayerActionModal(playerName, queueIdx) {
+  const court = activeCourt();
   const modal = document.getElementById('playerActionModal');
   const title = document.getElementById('playerActionTitle');
   const list = document.getElementById('playerActionList');
@@ -471,20 +626,20 @@ function showQueuePlayerActionModal(playerName, queueIdx) {
   let html = '';
   html += `<button class="action-option" onclick="renameQueuePlayerAction(${queueIdx})">✏️ Renomear</button>`;
 
-  // Offer swap with team players
-  if (currentTeamA.length > 0 || currentTeamB.length > 0) {
+  // Offer swap with active court's team players
+  if (court && (court.teamA.length > 0 || court.teamB.length > 0)) {
     html += `<div class="action-divider"></div>`;
     html += `<p class="action-subtitle">Trocar com jogador do time:</p>`;
-    currentTeamA.forEach((p, ti) => {
+    court.teamA.forEach((p, ti) => {
       const isStar = starPlayers.includes(p);
       html += `<button class="action-option action-substitute" onclick="substituteQueueWithTeam(${queueIdx}, 'A', ${ti})">
-        ${isStar ? '⭐ ' : ''}${escapeHtml(p)} <span style="color:var(--gray);font-size:0.75rem">(${escapeHtml(teamNameA)})</span>
+        ${isStar ? '⭐ ' : ''}${escapeHtml(p)} <span style="color:var(--gray);font-size:0.75rem">(${escapeHtml(court.nameA)})</span>
       </button>`;
     });
-    currentTeamB.forEach((p, ti) => {
+    court.teamB.forEach((p, ti) => {
       const isStar = starPlayers.includes(p);
       html += `<button class="action-option action-substitute" onclick="substituteQueueWithTeam(${queueIdx}, 'B', ${ti})">
-        ${isStar ? '⭐ ' : ''}${escapeHtml(p)} <span style="color:var(--gray);font-size:0.75rem">(${escapeHtml(teamNameB)})</span>
+        ${isStar ? '⭐ ' : ''}${escapeHtml(p)} <span style="color:var(--gray);font-size:0.75rem">(${escapeHtml(court.nameB)})</span>
       </button>`;
     });
   }
@@ -511,7 +666,8 @@ function renameQueuePlayerAction(queueIdx) {
 
 function substituteQueueWithTeam(queueIdx, team, teamIndex) {
   closePlayerActionModal();
-  const arr = team === 'A' ? currentTeamA : currentTeamB;
+  const court = activeCourt();
+  const arr = team === 'A' ? court.teamA : court.teamB;
   const playerOut = arr[teamIndex];
   const playerIn = playerQueue[queueIdx];
   if (!confirm(`Trocar ${playerIn} com ${playerOut}?`)) {
@@ -534,22 +690,24 @@ function setResult(result) {
 
 /**
  * Pre-computes the next state (teams, queue, names) for a given result.
- * This ensures what the modal shows is exactly what will be applied.
+ * Operates on the active court with shared global queue.
  */
 function computeNextState(result) {
+  const court = activeCourt();
   const state = {
     result: result,
-    goalsA: goalsA,
-    goalsB: goalsB,
-    prevTeamA: teamNameA,
-    prevTeamB: teamNameB,
-    prevPlayersA: [...currentTeamA],
-    prevPlayersB: [...currentTeamB]
+    courtIndex: activeCourtIndex,
+    goalsA: court.goalsA,
+    goalsB: court.goalsB,
+    prevTeamA: court.nameA,
+    prevTeamB: court.nameB,
+    prevPlayersA: [...court.teamA],
+    prevPlayersB: [...court.teamB]
   };
 
   if (result === 'draw') {
     // Both teams out — shuffle among themselves and send to END of queue
-    const matchPlayers = [...currentTeamA, ...currentTeamB];
+    const matchPlayers = [...court.teamA, ...court.teamB];
     shuffleArray(matchPlayers);
 
     // Preserve FIFO: existing queue first, then the players who just played
@@ -593,16 +751,15 @@ function computeNextState(result) {
     state.nextNameA = 'Novo Time';
     state.nextNameB = 'Novo Time';
   } else {
-    const winner = result === 'A' ? [...currentTeamA] : [...currentTeamB];
-    const loser = result === 'A' ? [...currentTeamB] : [...currentTeamA];
-    const winnerName = result === 'A' ? teamNameA : teamNameB;
+    const winner = result === 'A' ? [...court.teamA] : [...court.teamB];
+    const loser = result === 'A' ? [...court.teamB] : [...court.teamA];
+    const winnerName = result === 'A' ? court.nameA : court.nameB;
 
     // Loser goes to end of queue
     const tempQueue = [...playerQueue, ...loser];
 
     if (tempQueue.length >= playersPerTeam) {
       // Form balanced team from queue vs winner
-      // Simulate formBalancedTeamFromQueue
       const newTeam = tempQueue.splice(0, playersPerTeam);
       const starSet = new Set(starPlayers);
       const winnerStars = winner.filter(p => starSet.has(p)).length;
@@ -651,6 +808,9 @@ function computeNextState(result) {
 }
 
 function showResultConfirmationModal(result) {
+  const court = activeCourt();
+  if (!court) return;
+
   // Pre-compute the next state ONCE
   pendingResult = computeNextState(result);
 
@@ -661,8 +821,11 @@ function showResultConfirmationModal(result) {
   if (result === 'draw') {
     resultText = 'Empate';
   } else {
-    resultText = (result === 'A' ? teamNameA : teamNameB) + ' Venceu';
+    resultText = (result === 'A' ? court.nameA : court.nameB) + ' Venceu';
   }
+
+  // Court label for multi-court
+  const courtLabel = courts.length > 1 ? `<div class="confirm-court-label">Quadra ${activeCourtIndex + 1}</div>` : '';
 
   // Show star indicators in confirmation — vertical layout
   function playerListHtml(players) {
@@ -673,8 +836,9 @@ function showResultConfirmationModal(result) {
   }
 
   body.innerHTML = `
+    ${courtLabel}
     <div class="confirm-result-text">${escapeHtml(resultText)}</div>
-    <div class="confirm-score">${escapeHtml(teamNameA)} ${goalsA} × ${goalsB} ${escapeHtml(teamNameB)}</div>
+    <div class="confirm-score">${escapeHtml(court.nameA)} ${court.goalsA} × ${court.goalsB} ${escapeHtml(court.nameB)}</div>
     <div class="confirm-divider"></div>
     <p class="confirm-next-title">Próximo jogo:</p>
     <div class="confirm-teams">
@@ -717,8 +881,13 @@ function confirmResult() {
 function applyPendingResult() {
   if (!pendingResult) return;
 
-  // Record match in history
-  matchHistory.push({
+  // Get the court this result was computed for
+  const courtIndex = pendingResult.courtIndex;
+  const court = courts[courtIndex];
+  if (!court) return;
+
+  // Record match in history (per-court)
+  court.matchHistory.push({
     teamA: pendingResult.prevTeamA,
     teamB: pendingResult.prevTeamB,
     goalsA: pendingResult.goalsA,
@@ -728,12 +897,12 @@ function applyPendingResult() {
     playersB: pendingResult.prevPlayersB
   });
 
-  // Apply pre-computed state
-  currentTeamA = pendingResult.nextTeamA;
-  currentTeamB = pendingResult.nextTeamB;
+  // Apply pre-computed state to the court
+  court.teamA = pendingResult.nextTeamA;
+  court.teamB = pendingResult.nextTeamB;
   playerQueue = pendingResult.nextQueue;
-  teamNameA = pendingResult.nextNameA;
-  teamNameB = pendingResult.nextNameB;
+  court.nameA = pendingResult.nextNameA;
+  court.nameB = pendingResult.nextNameB;
 
   pendingResult = null;
 
@@ -755,14 +924,73 @@ function cancelResult() {
 function renderHistory() {
   const container = document.getElementById('matchHistoryView');
 
-  if (matchHistory.length === 0) {
-    container.innerHTML = '<p class="history-empty">Nenhum jogo registrado ainda.</p>';
-    return;
-  }
+  if (courts.length <= 1) {
+    // Single court — show its history directly
+    const court = activeCourt();
+    if (!court || court.matchHistory.length === 0) {
+      container.innerHTML = '<p class="history-empty">Nenhum jogo registrado ainda.</p>';
+      return;
+    }
+    container.innerHTML = renderHistoryCards(court.matchHistory);
+  } else {
+    // Multi-court — show tabs for each court + combined
+    let html = '<div class="history-court-tabs">';
+    html += `<button class="history-court-tab active" onclick="filterHistory(-1)">Todos</button>`;
+    courts.forEach((c, i) => {
+      html += `<button class="history-court-tab" onclick="filterHistory(${i})">Quadra ${i + 1}</button>`;
+    });
+    html += '</div>';
+    html += '<div id="historyContent">';
 
+    // Combined history (all courts)
+    const allHistory = [];
+    courts.forEach((c, ci) => {
+      c.matchHistory.forEach((m, mi) => {
+        allHistory.push({ ...m, courtIndex: ci, matchIndex: mi });
+      });
+    });
+
+    if (allHistory.length === 0) {
+      html += '<p class="history-empty">Nenhum jogo registrado ainda.</p>';
+    } else {
+      html += renderHistoryCards(allHistory, true);
+    }
+
+    html += '</div>';
+    container.innerHTML = html;
+  }
+}
+
+function filterHistory(courtIndex) {
+  // Update active tab
+  document.querySelectorAll('.history-court-tab').forEach((tab, i) => {
+    tab.classList.toggle('active', i === courtIndex + 1);
+  });
+
+  const content = document.getElementById('historyContent');
+  if (courtIndex === -1) {
+    // All courts
+    const allHistory = [];
+    courts.forEach((c, ci) => {
+      c.matchHistory.forEach(m => {
+        allHistory.push({ ...m, courtIndex: ci });
+      });
+    });
+    content.innerHTML = allHistory.length > 0
+      ? renderHistoryCards(allHistory, true)
+      : '<p class="history-empty">Nenhum jogo registrado ainda.</p>';
+  } else {
+    const court = courts[courtIndex];
+    content.innerHTML = court && court.matchHistory.length > 0
+      ? renderHistoryCards(court.matchHistory)
+      : '<p class="history-empty">Nenhum jogo registrado ainda.</p>';
+  }
+}
+
+function renderHistoryCards(history, showCourtLabel) {
   let html = '';
-  for (let i = matchHistory.length - 1; i >= 0; i--) {
-    const m = matchHistory[i];
+  for (let i = history.length - 1; i >= 0; i--) {
+    const m = history[i];
     const num = i + 1;
 
     let badgeText, badgeCls;
@@ -777,10 +1005,13 @@ function renderHistory() {
       badgeCls = 'history-badge win';
     }
 
+    const courtInfo = showCourtLabel && m.courtIndex !== undefined
+      ? `<span class="history-court-label">Q${m.courtIndex + 1}</span>` : '';
+
     html += `
       <div class="history-card">
         <div class="history-header">
-          <span class="history-num">Jogo ${num}</span>
+          <span class="history-num">${courtInfo}Jogo ${num}</span>
           <span class="${badgeCls}">${badgeText}</span>
         </div>
         <div class="history-score">
@@ -798,6 +1029,5 @@ function renderHistory() {
       </div>
     `;
   }
-
-  container.innerHTML = html;
+  return html;
 }

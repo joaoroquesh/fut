@@ -130,17 +130,29 @@ function formBalancedTeamFromQueue(winnerTeam) {
 }
 
 /**
- * Rebalanceia estrelas entre teamA, teamB e fila após mudança de tamanho.
+ * Rebalanceia estrelas entre TODOS os courts e fila após mudança de tamanho.
  * Reconstrói a lista completa e redistribui com balancedDistribute.
  */
 function rebalanceStars() {
-  const allPlayers = [...currentTeamA, ...currentTeamB, ...playerQueue];
+  // Pool ALL courts' players + queue
+  const allPlayers = [];
+  courts.forEach(c => {
+    if (c.teamA) allPlayers.push(...c.teamA);
+    if (c.teamB) allPlayers.push(...c.teamB);
+  });
+  allPlayers.push(...playerQueue);
+
   const { teams, remaining } = balancedDistribute(allPlayers, starPlayers, playersPerTeam);
 
-  if (teams.length >= 2) {
-    currentTeamA = teams[0];
-    currentTeamB = teams[1];
-    playerQueue = [...teams.slice(2).flat(), ...remaining];
-  }
-  // If less than 2 teams possible, keep current state
+  // Redistribute to courts (2 teams per court)
+  let teamIdx = 0;
+  courts.forEach(court => {
+    if (teamIdx + 1 < teams.length) {
+      court.teamA = teams[teamIdx++];
+      court.teamB = teams[teamIdx++];
+    }
+  });
+
+  // Remaining teams + leftover go to queue
+  playerQueue = [...teams.slice(teamIdx).flat(), ...remaining];
 }
