@@ -55,6 +55,14 @@ h2 {
   display: none !important;
 }
 
+/* Config Grid 2 columns */
+.config-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
 /* Config Section */
 .config-section {
   width: 100%;
@@ -1218,6 +1226,175 @@ h2 {
   animation: pulse 1.5s ease-in-out infinite;
 }
 
+/* Team Name Inputs */
+.team-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.team-name-input {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid var(--gray);
+  border-radius: 8px;
+  background: var(--black-light);
+  color: var(--white);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.team-name-input:focus {
+  border-color: var(--orange);
+}
+
+.team-name-vs {
+  color: var(--gray);
+  font-size: 0.8rem;
+}
+
+.team-name-prefix {
+  color: var(--gray);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+/* Toggle Option + Mix Slider */
+.toggle-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  cursor: pointer;
+}
+
+.toggle-option input[type="checkbox"] {
+  accent-color: var(--orange);
+  width: 18px;
+  height: 18px;
+}
+
+.toggle-option span {
+  color: var(--white);
+  font-size: 0.9rem;
+}
+
+.mix-slider-section {
+  width: 100%;
+  padding: 8px 0;
+}
+
+.mix-slider-section label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--gray);
+  margin-bottom: 8px;
+}
+
+.mix-slider-section input[type="range"] {
+  width: 100%;
+  accent-color: var(--orange);
+}
+
+.mix-slider-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--gray);
+}
+
+/* Inactive Section */
+.inactive-section {
+  width: 100%;
+}
+
+.inactive-list {
+  margin-top: 8px;
+}
+
+.inactive-player-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: var(--black-light);
+  border-radius: 8px;
+  margin-bottom: 4px;
+  opacity: 0.6;
+}
+
+.btn-reactivate {
+  background: none;
+  border: 1px solid var(--orange);
+  color: var(--orange);
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.btn-reactivate:hover {
+  background: var(--orange);
+  color: var(--white);
+}
+
+/* Modal: Expandable sections */
+.modal-expand-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--black);
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 4px;
+  color: var(--white);
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.modal-expand-header:active {
+  background: var(--gray);
+}
+
+.modal-expand-list {
+  padding: 4px 0;
+}
+
+/* Modal: Queue reorder buttons */
+.action-move-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.action-move-btn {
+  padding: 10px;
+  border: 1px solid var(--gray);
+  border-radius: 8px;
+  background: var(--black-light);
+  color: var(--white);
+  cursor: pointer;
+  text-align: center;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.action-move-btn:active {
+  background: var(--orange);
+  border-color: var(--orange);
+}
+
+/* Modal: Divider */
+.modal-divider {
+  border: none;
+  border-top: 1px solid var(--gray);
+  margin: 12px 0;
+}
+
 /* Mobile optimizations */
 @media (max-width: 500px) {
   body {
@@ -1306,6 +1483,10 @@ h2 {
   }
 
   .bulk-textarea {
+    font-size: 16px; /* prevents iOS zoom */
+  }
+
+  .team-name-input {
     font-size: 16px; /* prevents iOS zoom */
   }
 

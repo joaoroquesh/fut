@@ -44,22 +44,14 @@ function renderPlayerList() {
       const sobra = players.length % playersPerTeam;
       let text = `${players.length} jogador${players.length !== 1 ? 'es' : ''}`;
 
-      const minTeams = numCourts * 2;
-      if (numTeams >= minTeams) {
-        if (numCourts > 1) {
-          text += ` · ${numCourts} quadras`;
-        } else {
-          text += ` · ${numTeams} times`;
-        }
-        const queuePlayers = (numTeams - minTeams) * playersPerTeam + sobra;
-        if (queuePlayers > 0) text += ` + ${queuePlayers} na fila`;
-      } else if (numTeams >= 2) {
+      if (numTeams >= 2) {
+        text += ` · ${numTeams} times`;
+        if (sobra > 0) text += ` + ${sobra} avulso${sobra !== 1 ? 's' : ''}`;
         if (numCourts > 1) {
           const possibleCourts = Math.floor(numTeams / 2);
-          text += ` · ${possibleCourts}/${numCourts} quadras`;
-        } else {
-          text += ` · ${numTeams} times`;
-          if (sobra > 0) text += ` + ${sobra} na fila`;
+          text += possibleCourts < numCourts
+            ? ` · ${possibleCourts}/${numCourts} quadras`
+            : ` · ${numCourts} quadras`;
         }
       }
 
@@ -131,7 +123,8 @@ function startDraft() {
   }
 
   // Use balanced distribution across ALL teams (including queue teams)
-  const { teams, remaining } = balancedDistribute([...players], starPlayers, playersPerTeam);
+  const mix = prioritizeArrival ? arrivalMixFactor / 100 : -1;
+  const { teams, remaining } = balancedDistribute([...players], starPlayers, playersPerTeam, mix);
 
   if (teams.length < numCourts * 2) {
     showError(`Não há jogadores suficientes para formar ${numCourts} jogo${numCourts > 1 ? 's' : ''}`);
@@ -144,6 +137,10 @@ function startDraft() {
     const court = createCourt(i);
     court.teamA = teams[i * 2];
     court.teamB = teams[i * 2 + 1];
+    if (courtNames[i]) {
+      court.nameA = courtNames[i].nameA;
+      court.nameB = courtNames[i].nameB;
+    }
     courts.push(court);
   }
 
@@ -186,6 +183,40 @@ function renderTeamsScreen() {
   } else {
     queueContainer.innerHTML = '';
   }
+}
+
+// --- Team Names ---
+
+function renderTeamNameInputs() {
+  const section = document.getElementById('teamNamesSection');
+  if (!section) return;
+  // Ensure courtNames has right number of entries
+  while (courtNames.length < numCourts) {
+    courtNames.push({ nameA: 'Time A', nameB: 'Time B' });
+  }
+  courtNames.length = numCourts;
+
+  let html = '<label>Nomes dos times</label>';
+  courtNames.forEach((cn, i) => {
+    const prefix = numCourts > 1 ? `Quadra ${i + 1}: ` : '';
+    html += `<div class="team-name-row">
+      ${prefix ? `<span class="team-name-prefix">${prefix}</span>` : ''}
+      <input type="text" class="team-name-input" value="${escapeHtml(cn.nameA)}" placeholder="Time A"
+        onchange="courtNames[${i}].nameA = this.value.trim() || 'Time A'; saveState()">
+      <span class="team-name-vs">vs</span>
+      <input type="text" class="team-name-input" value="${escapeHtml(cn.nameB)}" placeholder="Time B"
+        onchange="courtNames[${i}].nameB = this.value.trim() || 'Time B'; saveState()">
+    </div>`;
+  });
+  section.innerHTML = html;
+}
+
+// --- Arrival Priority ---
+
+function toggleArrivalPriority(checked) {
+  prioritizeArrival = checked;
+  document.getElementById('mixSliderSection').classList.toggle('hidden', !checked);
+  saveState();
 }
 
 function renderTeamCard(title, teamPlayers) {

@@ -243,6 +243,13 @@ function renderMatchScreen() {
 
   // Queue display (shared across all courts)
   renderQueueDisplay();
+
+  // Inactive players section
+  renderInactiveSection();
+
+  // Sync match config goalsPerMatch display
+  const mgpm = document.getElementById('matchGoalsPerMatch');
+  if (mgpm) mgpm.textContent = goalsPerMatch === 0 ? '∞' : goalsPerMatch;
 }
 
 function renderQueueDisplay() {
@@ -303,6 +310,14 @@ function editTeamName(team) {
     } else {
       court.nameB = newName.trim();
     }
+    // Also update courtNames for persistence
+    if (courtNames[activeCourtIndex]) {
+      if (team === 'A') {
+        courtNames[activeCourtIndex].nameA = newName.trim();
+      } else {
+        courtNames[activeCourtIndex].nameB = newName.trim();
+      }
+    }
     renderMatchScreen();
     saveState();
   }
@@ -321,6 +336,16 @@ function adjustGoals(team, delta) {
     document.getElementById('goalsB').textContent = court.goalsB;
   }
   updateResultHighlight();
+
+  // Auto-detect goal limit reached
+  if (goalsPerMatch > 0 && delta > 0) {
+    if (court.goalsA >= goalsPerMatch || court.goalsB >= goalsPerMatch) {
+      // Vibrate if supported
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      const winner = court.goalsA >= goalsPerMatch ? 'A' : 'B';
+      setTimeout(() => setResult(winner), 300);
+    }
+  }
 }
 
 function resetGoals() {
@@ -360,12 +385,13 @@ function addPlayerToQueue() {
   const name = input.value.trim();
   if (!name) return;
 
-  // Check ALL courts + queue for duplicates
+  // Check ALL courts + queue + inactive for duplicates
   const allInGame = [];
   courts.forEach(c => {
     allInGame.push(...(c.teamA || []), ...(c.teamB || []));
   });
   allInGame.push(...playerQueue);
+  allInGame.push(...inactivePlayers);
 
   if (allInGame.includes(name)) {
     // Visual feedback: flash red border
@@ -526,22 +552,64 @@ function showPlayerActionModal(playerName, team, index) {
   const modal = document.getElementById('playerActionModal');
   const title = document.getElementById('playerActionTitle');
   const list = document.getElementById('playerActionList');
+  const court = activeCourt();
 
   title.textContent = playerName;
 
   let html = '';
-  html += `<button class="action-option" onclick="renamePlayerAction('${team}', ${index})">✏️ Renomear</button>`;
 
+  // Expandable section: Banco (inactive)
+  if (inactivePlayers.length > 0) {
+    html += `<div class="modal-expand-header" onclick="this.nextElementSibling.classList.toggle('hidden')">
+      <span>😴 Banco (${inactivePlayers.length})</span><span>▶</span>
+    </div>`;
+    html += `<div class="modal-expand-list hidden">`;
+    inactivePlayers.forEach((p, ii) => {
+      const isStar = starPlayers.includes(p);
+      html += `<button class="action-option action-substitute" onclick="substituteWithInactive('${team}', ${index}, ${ii})">
+        ${isStar ? '⭐ ' : ''}${escapeHtml(p)}
+      </button>`;
+    });
+    html += `</div>`;
+  }
+
+  // Expandable section: Fila
   if (playerQueue.length > 0) {
-    html += `<div class="action-divider"></div>`;
-    html += `<p class="action-subtitle">Substituir por:</p>`;
+    html += `<div class="modal-expand-header" onclick="this.nextElementSibling.classList.toggle('hidden')">
+      <span>⏳ Fila (${playerQueue.length})</span><span>▶</span>
+    </div>`;
+    html += `<div class="modal-expand-list hidden">`;
     playerQueue.forEach((p, qi) => {
       const isStar = starPlayers.includes(p);
       html += `<button class="action-option action-substitute" onclick="substitutePlayer('${team}', ${index}, ${qi})">
         ${isStar ? '⭐ ' : ''}${escapeHtml(p)}
       </button>`;
     });
+    html += `</div>`;
   }
+
+  // Expandable section: Outro time
+  const otherTeam = team === 'A' ? 'B' : 'A';
+  const otherArr = otherTeam === 'A' ? court.teamA : court.teamB;
+  const otherName = otherTeam === 'A' ? court.nameA : court.nameB;
+  if (otherArr && otherArr.length > 0) {
+    html += `<div class="modal-expand-header" onclick="this.nextElementSibling.classList.toggle('hidden')">
+      <span>🔄 ${escapeHtml(otherName)} (${otherArr.length})</span><span>▶</span>
+    </div>`;
+    html += `<div class="modal-expand-list hidden">`;
+    otherArr.forEach((p, ti) => {
+      const isStar = starPlayers.includes(p);
+      html += `<button class="action-option action-substitute" onclick="swapTeamPlayers('${team}', ${index}, '${otherTeam}', ${ti})">
+        ${isStar ? '⭐ ' : ''}${escapeHtml(p)}
+      </button>`;
+    });
+    html += `</div>`;
+  }
+
+  // Divider + bottom actions
+  html += `<hr class="modal-divider">`;
+  html += `<button class="action-option" onclick="renamePlayerAction('${team}', ${index})">✏️ Renomear</button>`;
+  html += `<button class="action-option" onclick="deactivateTeamPlayer('${team}', ${index})">😴 Inativar</button>`;
 
   list.innerHTML = html;
   modal.classList.remove('hidden');
@@ -601,6 +669,111 @@ function moveQueuePlayer(fromIdx, direction) {
   saveState();
 }
 
+function moveQueuePlayerToTop(fromIdx) {
+  if (fromIdx <= 0) return;
+  const player = playerQueue.splice(fromIdx, 1)[0];
+  playerQueue.unshift(player);
+  renderMatchScreen();
+  saveState();
+}
+
+function moveQueuePlayerToBottom(fromIdx) {
+  if (fromIdx >= playerQueue.length - 1) return;
+  const player = playerQueue.splice(fromIdx, 1)[0];
+  playerQueue.push(player);
+  renderMatchScreen();
+  saveState();
+}
+
+// --- Inactive Players ---
+
+function deactivateTeamPlayer(team, index) {
+  closePlayerActionModal();
+  const court = activeCourt();
+  const arr = team === 'A' ? court.teamA : court.teamB;
+  const player = arr[index];
+  if (!confirm(`Inativar ${player}?`)) return;
+  arr.splice(index, 1);
+  inactivePlayers.push(player);
+  if (playerQueue.length > 0) {
+    arr.push(playerQueue.shift());
+  }
+  renderMatchScreen();
+  saveState();
+}
+
+function deactivateQueuePlayer(queueIdx) {
+  closePlayerActionModal();
+  const player = playerQueue[queueIdx];
+  if (!confirm(`Inativar ${player}?`)) return;
+  playerQueue.splice(queueIdx, 1);
+  inactivePlayers.push(player);
+  renderMatchScreen();
+  saveState();
+}
+
+function reactivatePlayer(inactiveIdx) {
+  const player = inactivePlayers[inactiveIdx];
+  inactivePlayers.splice(inactiveIdx, 1);
+  playerQueue.push(player);
+  renderMatchScreen();
+  saveState();
+}
+
+function toggleInactiveList() {
+  const list = document.getElementById('inactiveList');
+  if (list) list.classList.toggle('hidden');
+}
+
+function renderInactiveSection() {
+  const section = document.getElementById('inactiveSection');
+  if (!section) return;
+  if (inactivePlayers.length === 0) {
+    section.classList.add('hidden');
+    return;
+  }
+  section.classList.remove('hidden');
+  let html = `<button class="btn-link" onclick="toggleInactiveList()">😴 Banco (${inactivePlayers.length})</button>`;
+  html += '<div id="inactiveList" class="inactive-list">';
+  inactivePlayers.forEach((p, i) => {
+    const isStar = starPlayers.includes(p);
+    html += `<div class="inactive-player-row">
+      <span>${isStar ? '⭐ ' : ''}${escapeHtml(p)}</span>
+      <button class="btn-reactivate" onclick="reactivatePlayer(${i})">↩</button>
+    </div>`;
+  });
+  html += '</div>';
+  section.innerHTML = html;
+}
+
+function substituteWithInactive(team, teamIndex, inactiveIdx) {
+  closePlayerActionModal();
+  const court = activeCourt();
+  const arr = team === 'A' ? court.teamA : court.teamB;
+  const playerOut = arr[teamIndex];
+  const playerIn = inactivePlayers[inactiveIdx];
+  if (!confirm(`${playerIn} entra, ${playerOut} vai para a fila?`)) return;
+  arr[teamIndex] = playerIn;
+  inactivePlayers.splice(inactiveIdx, 1);
+  playerQueue.push(playerOut);
+  renderMatchScreen();
+  saveState();
+}
+
+function swapTeamPlayers(fromTeam, fromIndex, toTeam, toIndex) {
+  closePlayerActionModal();
+  const court = activeCourt();
+  const fromArr = fromTeam === 'A' ? court.teamA : court.teamB;
+  const toArr = toTeam === 'A' ? court.teamA : court.teamB;
+  const pA = fromArr[fromIndex];
+  const pB = toArr[toIndex];
+  if (!confirm(`Trocar ${pA} com ${pB}?`)) return;
+  fromArr[fromIndex] = pB;
+  toArr[toIndex] = pA;
+  renderMatchScreen();
+  saveState();
+}
+
 // --- Queue Long Press ---
 
 function startQueueLongPress(queueIdx, event) {
@@ -616,7 +789,6 @@ function startQueueLongPress(queueIdx, event) {
 }
 
 function showQueuePlayerActionModal(playerName, queueIdx) {
-  const court = activeCourt();
   const modal = document.getElementById('playerActionModal');
   const title = document.getElementById('playerActionTitle');
   const list = document.getElementById('playerActionList');
@@ -624,25 +796,22 @@ function showQueuePlayerActionModal(playerName, queueIdx) {
   title.textContent = playerName;
 
   let html = '';
-  html += `<button class="action-option" onclick="renameQueuePlayerAction(${queueIdx})">✏️ Renomear</button>`;
 
-  // Offer swap with active court's team players
-  if (court && (court.teamA.length > 0 || court.teamB.length > 0)) {
-    html += `<div class="action-divider"></div>`;
-    html += `<p class="action-subtitle">Trocar com jogador do time:</p>`;
-    court.teamA.forEach((p, ti) => {
-      const isStar = starPlayers.includes(p);
-      html += `<button class="action-option action-substitute" onclick="substituteQueueWithTeam(${queueIdx}, 'A', ${ti})">
-        ${isStar ? '⭐ ' : ''}${escapeHtml(p)} <span style="color:var(--gray);font-size:0.75rem">(${escapeHtml(court.nameA)})</span>
-      </button>`;
-    });
-    court.teamB.forEach((p, ti) => {
-      const isStar = starPlayers.includes(p);
-      html += `<button class="action-option action-substitute" onclick="substituteQueueWithTeam(${queueIdx}, 'B', ${ti})">
-        ${isStar ? '⭐ ' : ''}${escapeHtml(p)} <span style="color:var(--gray);font-size:0.75rem">(${escapeHtml(court.nameB)})</span>
-      </button>`;
-    });
-  }
+  // Reorder buttons
+  html += `<p class="action-subtitle">Posição na fila</p>`;
+  html += `<div class="action-move-row">
+    <button class="action-move-btn" onclick="closePlayerActionModal(); moveQueuePlayer(${queueIdx}, -1)">⬆ Subir</button>
+    <button class="action-move-btn" onclick="closePlayerActionModal(); moveQueuePlayer(${queueIdx}, 1)">⬇ Descer</button>
+  </div>`;
+  html += `<div class="action-move-row" style="margin-top:4px">
+    <button class="action-move-btn" onclick="closePlayerActionModal(); moveQueuePlayerToTop(${queueIdx})">⏫ Topo</button>
+    <button class="action-move-btn" onclick="closePlayerActionModal(); moveQueuePlayerToBottom(${queueIdx})">⏬ Fim</button>
+  </div>`;
+
+  // Divider + bottom actions
+  html += `<hr class="modal-divider">`;
+  html += `<button class="action-option" onclick="renameQueuePlayerAction(${queueIdx})">✏️ Renomear</button>`;
+  html += `<button class="action-option" onclick="deactivateQueuePlayer(${queueIdx})">😴 Inativar</button>`;
 
   list.innerHTML = html;
   modal.classList.remove('hidden');
@@ -748,8 +917,8 @@ function computeNextState(result) {
     }
 
     state.nextQueue = tempQueue;
-    state.nextNameA = 'Novo Time';
-    state.nextNameB = 'Novo Time';
+    state.nextNameA = court.nameA;
+    state.nextNameB = court.nameB;
   } else {
     const winner = result === 'A' ? [...court.teamA] : [...court.teamB];
     const loser = result === 'A' ? [...court.teamB] : [...court.teamA];
@@ -792,7 +961,7 @@ function computeNextState(result) {
       state.nextTeamB = newTeam;
       state.nextQueue = tempQueue;
       state.nextNameA = winnerName;
-      state.nextNameB = 'Novo Time';
+      state.nextNameB = result === 'A' ? court.nameB : court.nameA;
     } else {
       // Not enough for a full team
       const backPlayers = tempQueue.splice(0, tempQueue.length);
@@ -800,7 +969,7 @@ function computeNextState(result) {
       state.nextTeamB = backPlayers.length === playersPerTeam ? backPlayers : loser;
       state.nextQueue = state.nextTeamB === loser ? [] : tempQueue;
       state.nextNameA = winnerName;
-      state.nextNameB = 'Novo Time';
+      state.nextNameB = result === 'A' ? court.nameB : court.nameA;
     }
   }
 
@@ -862,20 +1031,7 @@ function confirmResult() {
   modal.classList.add('hidden');
 
   if (!pendingResult) return;
-
-  const result = pendingResult.result;
-
-  // Visual feedback on button
-  document.querySelectorAll('.result-buttons button').forEach(b => b.classList.remove('selected'));
-  if (result === 'A') {
-    document.getElementById('btnTeamA').classList.add('selected');
-  } else if (result === 'B') {
-    document.getElementById('btnTeamB').classList.add('selected');
-  } else {
-    document.getElementById('btnDraw').classList.add('selected');
-  }
-
-  setTimeout(() => applyPendingResult(), 400);
+  applyPendingResult();
 }
 
 function applyPendingResult() {
@@ -916,6 +1072,7 @@ function applyPendingResult() {
 
 function cancelResult() {
   document.getElementById('resultConfirmModal').classList.add('hidden');
+  document.querySelectorAll('.result-buttons button').forEach(b => b.classList.remove('selected'));
   pendingResult = null;
 }
 

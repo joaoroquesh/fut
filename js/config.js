@@ -5,7 +5,8 @@
 // Setup screen config
 function adjustNumber(id, delta) {
   const el = document.getElementById(id);
-  let val = parseInt(el.textContent) + delta;
+  const current = el.textContent === '∞' ? 0 : parseInt(el.textContent);
+  let val = current + delta;
   if (id === 'playersPerTeam') {
     val = Math.max(1, Math.min(11, val));
     playersPerTeam = val;
@@ -15,12 +16,18 @@ function adjustNumber(id, delta) {
   } else if (id === 'numCourts') {
     val = Math.max(1, Math.min(4, val));
     numCourts = val;
+  } else if (id === 'goalsPerMatch') {
+    val = Math.max(0, Math.min(20, val));
+    goalsPerMatch = val;
   }
-  el.textContent = val;
+  el.textContent = (id === 'goalsPerMatch' && val === 0) ? '∞' : val;
   saveState();
   // Update team math display when playersPerTeam or numCourts changes
   if ((id === 'playersPerTeam' || id === 'numCourts') && typeof renderPlayerList === 'function') {
     renderPlayerList();
+  }
+  if (id === 'numCourts' && typeof renderTeamNameInputs === 'function') {
+    renderTeamNameInputs();
   }
 }
 
@@ -32,8 +39,10 @@ function toggleMatchConfig() {
     // Initialize temp values from current
     tempPlayersPerTeam = playersPerTeam;
     tempGameTime = gameTimeMinutes;
+    tempGoalsPerMatch = goalsPerMatch;
     document.getElementById('matchPlayersPerTeam').textContent = tempPlayersPerTeam;
     document.getElementById('matchGameTime').textContent = tempGameTime;
+    document.getElementById('matchGoalsPerMatch').textContent = tempGoalsPerMatch === 0 ? '∞' : tempGoalsPerMatch;
   }
 }
 
@@ -44,6 +53,10 @@ function adjustMatchConfig(id, delta) {
   } else if (id === 'matchGameTime') {
     tempGameTime = Math.max(1, Math.min(60, (tempGameTime || gameTimeMinutes) + delta));
     document.getElementById('matchGameTime').textContent = tempGameTime;
+  } else if (id === 'matchGoalsPerMatch') {
+    const current = tempGoalsPerMatch != null ? tempGoalsPerMatch : goalsPerMatch;
+    tempGoalsPerMatch = Math.max(0, Math.min(20, current + delta));
+    document.getElementById('matchGoalsPerMatch').textContent = tempGoalsPerMatch === 0 ? '∞' : tempGoalsPerMatch;
   }
 }
 
@@ -67,10 +80,17 @@ function applyMatchConfig() {
     timeChanged = true;
   }
 
+  let goalsChanged = false;
+  if (tempGoalsPerMatch !== null && tempGoalsPerMatch !== goalsPerMatch) {
+    goalsPerMatch = tempGoalsPerMatch;
+    document.getElementById('goalsPerMatch').textContent = goalsPerMatch === 0 ? '∞' : goalsPerMatch;
+    goalsChanged = true;
+  }
+
   // Close config panel
   document.getElementById('matchConfigSection').classList.add('hidden');
 
-  if (teamChanged || timeChanged) {
+  if (teamChanged || timeChanged || goalsChanged) {
     renderMatchScreen();
     saveState();
   }

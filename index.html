@@ -15,32 +15,45 @@
   <div id="screen-setup" class="screen active">
     <h1>Fut Shalom</h1>
 
-    <div class="config-section">
-      <label>Jogadores por time</label>
-      <div class="number-control">
-        <button onclick="adjustNumber('playersPerTeam', -1)">−</button>
-        <span id="playersPerTeam">6</span>
-        <button onclick="adjustNumber('playersPerTeam', 1)">+</button>
+    <div class="config-grid">
+      <div class="config-section">
+        <label>Jogadores por time</label>
+        <div class="number-control">
+          <button onclick="adjustNumber('playersPerTeam', -1)">−</button>
+          <span id="playersPerTeam">6</span>
+          <button onclick="adjustNumber('playersPerTeam', 1)">+</button>
+        </div>
+      </div>
+
+      <div class="config-section">
+        <label>Tempo por jogo (min)</label>
+        <div class="number-control">
+          <button onclick="adjustNumber('gameTime', -1)">−</button>
+          <span id="gameTime">7</span>
+          <button onclick="adjustNumber('gameTime', 1)">+</button>
+        </div>
+      </div>
+
+      <div class="config-section">
+        <label>Gols por partida</label>
+        <div class="number-control">
+          <button onclick="adjustNumber('goalsPerMatch', -1)">−</button>
+          <span id="goalsPerMatch">∞</span>
+          <button onclick="adjustNumber('goalsPerMatch', 1)">+</button>
+        </div>
+      </div>
+
+      <div class="config-section">
+        <label>Jogos simultâneos</label>
+        <div class="number-control">
+          <button onclick="adjustNumber('numCourts', -1)">−</button>
+          <span id="numCourts">1</span>
+          <button onclick="adjustNumber('numCourts', 1)">+</button>
+        </div>
       </div>
     </div>
 
-    <div class="config-section">
-      <label>Tempo por jogo (minutos)</label>
-      <div class="number-control">
-        <button onclick="adjustNumber('gameTime', -1)">−</button>
-        <span id="gameTime">7</span>
-        <button onclick="adjustNumber('gameTime', 1)">+</button>
-      </div>
-    </div>
-
-    <div class="config-section">
-      <label>Jogos simultâneos (quadras)</label>
-      <div class="number-control">
-        <button onclick="adjustNumber('numCourts', -1)">−</button>
-        <span id="numCourts">1</span>
-        <button onclick="adjustNumber('numCourts', 1)">+</button>
-      </div>
-    </div>
+    <div id="teamNamesSection" class="config-section"></div>
 
     <div class="config-section">
       <label>Adicionar jogador</label>
@@ -63,6 +76,17 @@
       <p class="star-tooltip">Toque no jogador para marcar como ⭐ estrela. Estrelas são distribuídas entre os times.</p>
     </div>
     <div id="playerList" class="player-list"></div>
+
+    <label class="toggle-option">
+      <input type="checkbox" id="prioritizeArrival" onchange="toggleArrivalPriority(this.checked)">
+      <span>Priorizar ordem de chegada</span>
+    </label>
+    <div id="mixSliderSection" class="mix-slider-section hidden">
+      <label>Mistura: <span id="mixValueLabel">70%</span></label>
+      <input type="range" id="arrivalMixSlider" min="0" max="100" value="70"
+        oninput="arrivalMixFactor = +this.value; document.getElementById('mixValueLabel').textContent = this.value + '%'; saveState()">
+      <div class="mix-slider-labels"><span>Ordem pura</span><span>Aleatório</span></div>
+    </div>
 
     <div id="setupError" class="error-msg"></div>
     <button class="btn-primary" onclick="startDraft()">Sortear Times</button>
@@ -131,6 +155,8 @@
 
       <div id="matchQueue" class="match-queue"></div>
 
+      <div id="inactiveSection" class="inactive-section hidden"></div>
+
       <div class="config-section add-to-queue">
         <label>Adicionar jogador na fila</label>
         <div class="player-input">
@@ -157,6 +183,14 @@
             <button onclick="adjustMatchConfig('matchGameTime', -1)">−</button>
             <span id="matchGameTime">7</span>
             <button onclick="adjustMatchConfig('matchGameTime', 1)">+</button>
+          </div>
+        </div>
+        <div class="config-section">
+          <label>Gols por partida</label>
+          <div class="number-control">
+            <button onclick="adjustMatchConfig('matchGoalsPerMatch', -1)">−</button>
+            <span id="matchGoalsPerMatch">∞</span>
+            <button onclick="adjustMatchConfig('matchGoalsPerMatch', 1)">+</button>
           </div>
         </div>
         <button class="btn-primary btn-small" onclick="applyMatchConfig()">Salvar</button>

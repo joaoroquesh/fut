@@ -2,6 +2,21 @@
 // stars.js — Lógica de estrelas e balanceamento
 // ===========================================
 
+/**
+ * Partial shuffle: preserva ordem de chegada com ruído controlado.
+ * mixFactor 0 = ordem pura, 1 = totalmente aleatório.
+ */
+function partialShuffle(arr, mixFactor) {
+  const n = arr.length;
+  const noise = n * mixFactor;
+  const indexed = arr.map((item, i) => ({
+    item,
+    sortKey: i + Math.random() * noise
+  }));
+  indexed.sort((a, b) => a.sortKey - b.sortKey);
+  return indexed.map(x => x.item);
+}
+
 function toggleStar(name) {
   if (starPlayers.includes(name)) {
     starPlayers = starPlayers.filter(p => p !== name);
@@ -19,17 +34,26 @@ function toggleStar(name) {
  * @param {number} teamSize - Jogadores por time
  * @returns {{ teams: string[][], remaining: string[] }}
  */
-function balancedDistribute(allPlayers, stars, teamSize) {
+/**
+ * @param {number} mixFactor - -1 = full random (default), 0-1 = partial shuffle
+ */
+function balancedDistribute(allPlayers, stars, teamSize, mixFactor) {
+  if (mixFactor === undefined) mixFactor = -1;
   const numTeams = Math.floor(allPlayers.length / teamSize);
   if (numTeams === 0) {
     return { teams: [], remaining: [...allPlayers] };
   }
 
   const starSet = new Set(stars);
-  const starList = allPlayers.filter(p => starSet.has(p));
-  const nonStarList = allPlayers.filter(p => !starSet.has(p));
-  shuffleArray(starList);
-  shuffleArray(nonStarList);
+  let starList = allPlayers.filter(p => starSet.has(p));
+  let nonStarList = allPlayers.filter(p => !starSet.has(p));
+  if (mixFactor < 0) {
+    shuffleArray(starList);
+    shuffleArray(nonStarList);
+  } else {
+    starList = partialShuffle(starList, mixFactor);
+    nonStarList = partialShuffle(nonStarList, mixFactor);
+  }
 
   // Create empty teams
   const teams = Array.from({ length: numTeams }, () => []);
@@ -64,8 +88,10 @@ function balancedDistribute(allPlayers, stars, teamSize) {
   }
 
   // Shuffle internal order of each team (stars don't always end up first)
-  for (let t = 0; t < numTeams; t++) {
-    shuffleArray(teams[t]);
+  if (mixFactor < 0) {
+    for (let t = 0; t < numTeams; t++) {
+      shuffleArray(teams[t]);
+    }
   }
 
   // Remaining players (not enough for a full team)

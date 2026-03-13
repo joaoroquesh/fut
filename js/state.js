@@ -25,9 +25,17 @@ let longPressTriggered = false;
 // Match config temp state
 let tempPlayersPerTeam = null;
 let tempGameTime = null;
+let tempGoalsPerMatch = null;
 
 // Pending result (pre-computed for confirmation modal)
 let pendingResult = null;
+
+// Sprint 1: new configs
+let goalsPerMatch = 0; // 0 = no limit
+let courtNames = []; // [{nameA, nameB}] per court
+let inactivePlayers = [];
+let prioritizeArrival = false;
+let arrivalMixFactor = 70; // 0-100 slider
 
 // --- Court factory ---
 
@@ -76,7 +84,12 @@ function saveState() {
       timerSeconds: c.timerSeconds,
       timerRunning: c.timerRunning
     })),
-    currentScreen: document.querySelector('.screen.active')?.id || 'screen-setup'
+    currentScreen: document.querySelector('.screen.active')?.id || 'screen-setup',
+    goalsPerMatch,
+    courtNames,
+    inactivePlayers,
+    prioritizeArrival,
+    arrivalMixFactor
   };
   localStorage.setItem('futDaGalera', JSON.stringify(state));
 }
@@ -156,6 +169,11 @@ function loadStateV2(state) {
   draftStarted = state.draftStarted || false;
   starPlayers = state.starPlayers || [];
   activeCourtIndex = state.activeCourtIndex || 0;
+  goalsPerMatch = state.goalsPerMatch || 0;
+  courtNames = state.courtNames || [];
+  inactivePlayers = state.inactivePlayers || [];
+  prioritizeArrival = state.prioritizeArrival || false;
+  arrivalMixFactor = state.arrivalMixFactor != null ? state.arrivalMixFactor : 70;
 
   // Restore courts
   courts = (state.courts || []).map(c => {
@@ -182,6 +200,17 @@ function loadStateV2(state) {
   document.getElementById('gameTime').textContent = gameTimeMinutes;
   const numCourtsEl = document.getElementById('numCourts');
   if (numCourtsEl) numCourtsEl.textContent = numCourts;
+  const gpmEl = document.getElementById('goalsPerMatch');
+  if (gpmEl) gpmEl.textContent = goalsPerMatch === 0 ? '∞' : goalsPerMatch;
+  const paEl = document.getElementById('prioritizeArrival');
+  if (paEl) paEl.checked = prioritizeArrival;
+  const mixSection = document.getElementById('mixSliderSection');
+  if (mixSection) mixSection.classList.toggle('hidden', !prioritizeArrival);
+  const mixSlider = document.getElementById('arrivalMixSlider');
+  if (mixSlider) mixSlider.value = arrivalMixFactor;
+  const mixLabel = document.getElementById('mixValueLabel');
+  if (mixLabel) mixLabel.textContent = arrivalMixFactor + '%';
+  if (typeof renderTeamNameInputs === 'function') renderTeamNameInputs();
   renderPlayerList();
 
   if (draftStarted && courts.length > 0) {
@@ -218,10 +247,25 @@ function clearAll() {
   starPlayers = [];
   playersPerTeam = 6;
   gameTimeMinutes = 7;
+  goalsPerMatch = 0;
+  courtNames = [];
+  inactivePlayers = [];
+  prioritizeArrival = false;
+  arrivalMixFactor = 70;
   document.getElementById('playersPerTeam').textContent = '6';
   document.getElementById('gameTime').textContent = '7';
   const numCourtsEl = document.getElementById('numCourts');
   if (numCourtsEl) numCourtsEl.textContent = '1';
+  const gpmEl = document.getElementById('goalsPerMatch');
+  if (gpmEl) gpmEl.textContent = '∞';
+  const paEl = document.getElementById('prioritizeArrival');
+  if (paEl) paEl.checked = false;
+  const mixSection = document.getElementById('mixSliderSection');
+  if (mixSection) mixSection.classList.add('hidden');
+  const mixSlider = document.getElementById('arrivalMixSlider');
+  if (mixSlider) mixSlider.value = 70;
+  const mixLabel = document.getElementById('mixValueLabel');
+  if (mixLabel) mixLabel.textContent = '70%';
   renderPlayerList();
   clearError();
   showScreen('screen-setup');
